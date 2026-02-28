@@ -5,8 +5,9 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 import time
 import asyncio
 import os
-from typing import Optional, Dict, Any, Deque
+from typing import Optional, Dict, Any, Deque, List
 from collections import deque
+from pydantic import Field
 
 import frida
 from mcp.server.fastmcp import FastMCP
@@ -43,11 +44,9 @@ def _bind_session_events(sess: frida.core.Session) -> None:
         _frida_log(f"bind detached failed: {e}")
 
 # Initialize FastMCP
-app = FastMCP("frida-mcp")
-
+mcp = FastMCP("frida-mcp")
 
 CONFIG = load_config()
-
 
 
 # Independent script wrapper function to prevent stdout pollution
@@ -287,8 +286,9 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
         pass
     return False
 
+# Frida Server Start/Stop
 
-@app.tool()
+@mcp.tool()
 async def start_android_frida_server() -> Dict[str, Any]:
     """
     启动 Android 设备上的 frida-server。
@@ -310,7 +310,7 @@ async def start_android_frida_server() -> Dict[str, Any]:
     }
 
 
-@app.tool()
+@mcp.tool()
 async def stop_android_frida_server() -> Dict[str, Any]:
     """
     停止 Android 设备上的 frida-server。
@@ -325,7 +325,7 @@ async def stop_android_frida_server() -> Dict[str, Any]:
     return {"status": "success" if ok else "error", "message": "frida-server stopped" if ok else "failed to stop frida-server"}
 
 
-@app.tool()
+@mcp.tool()
 async def check_android_frida_status() -> Dict[str, Any]:
     """
     检测 Android frida-server 是否在运行。
@@ -337,7 +337,7 @@ async def check_android_frida_status() -> Dict[str, Any]:
     return {"status": "success", "running": running}
 
 
-@app.tool()
+@mcp.tool()
 async def start_windows_frida_server() -> Dict[str, Any]:
     """
     启动 Windows 本地 frida-server。
@@ -358,7 +358,7 @@ async def start_windows_frida_server() -> Dict[str, Any]:
     }
 
 
-@app.tool()
+@mcp.tool()
 async def stop_windows_frida_server() -> Dict[str, Any]:
     """
     停止 Windows 本地 frida-server。
@@ -372,7 +372,7 @@ async def stop_windows_frida_server() -> Dict[str, Any]:
     return {"status": "success" if ok else "error", "message": "frida-server stopped" if ok else "failed to stop frida-server"}
 
 
-@app.tool()
+@mcp.tool()
 async def check_windows_frida_status() -> Dict[str, Any]:
     """
     检测 Windows 本地 frida-server 是否在运行。
@@ -383,8 +383,175 @@ async def check_windows_frida_status() -> Dict[str, Any]:
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
+# Frida Tools Function
 
-@app.tool()
+@mcp.tool()
+def enumerate_processes(
+        device_id: Optional[str] = Field(default=None,
+                                         description="Optional ID of the device to enumerate processes from. Uses USB device if not specified.")
+) -> List[Dict[str, Any]]:
+    """List all processes running on the system.
+
+    Returns:
+        A list of process information dictionaries containing:
+        - pid: Process ID
+        - name: Process name
+    """
+    if device_id:
+        _device = frida.get_device(device_id)
+    else:
+        _device = frida.get_usb_device()
+    processes = _device.enumerate_processes()
+    return [{"pid": _process.pid, "name": _process.name} for _process in processes]
+
+@mcp.tool()
+def enumerate_devices() -> List[Dict[str, Any]]:
+    """List all devices connected to the system.
+
+    Returns:
+        A list of device information dictionaries containing:
+        - id: Device ID
+        - name: Device name
+        - type: Device type
+    """
+    devices = frida.enumerate_devices()
+    return [
+        {
+            "id": _device.id,
+            "name": _device.name,
+            "type": _device.type,
+        }
+        for _device in devices
+    ]
+
+
+@mcp.tool()
+def get_device(device_id: str = Field(description="The ID of the device to get")) -> Dict[str, Any]:
+    """Get a device by its ID.
+
+    Returns:
+        Information about the device
+    """
+    try:
+        _device = frida.get_device(device_id)
+        return {
+            "id": _device.id,
+            "name": _device.name,
+            "type": _device.type,
+        }
+    except frida.InvalidArgumentError:
+        raise ValueError(f"Device with ID {device_id} not found")
+
+
+@mcp.tool()
+def get_usb_device() -> Dict[str, Any]:
+    """Get the USB device connected to the system.
+
+    Returns:
+        Information about the USB device
+    """
+    try:
+        _device = frida.get_usb_device()
+        return {
+            "id": _device.id,
+            "name": _device.name,
+            "type": _device.type,
+        }
+    except frida.InvalidArgumentError:
+        raise ValueError("No USB device found")
+
+
+@mcp.tool()
+def get_local_device() -> Dict[str, Any]:
+    """Get the local device.
+
+    Returns:
+        Information about the local device
+    """
+    try:
+        _device = frida.get_local_device()
+        return {
+            "id": _device.id,
+            "name": _device.name,
+            "type": _device.type,
+        }
+    except frida.InvalidArgumentError:  # Or other relevant Frida exceptions
+        raise ValueError("No local device found or error accessing it.")
+
+
+@mcp.tool()
+def get_process_by_name(
+        name: str = Field(description="The name (or part of the name) of the process to find. Case-insensitive."),
+        device_id: Optional[str] = Field(default=None,
+                                         description="Optional ID of the device to search the process on. Uses USB device if not specified.")) -> dict:
+    """Find a process by name."""
+    if device_id:
+        _device = frida.get_device(device_id)
+    else:
+        _device = frida.get_usb_device()
+    for proc in _device.enumerate_processes():
+        if name.lower() in proc.name.lower():
+            return {"pid": proc.pid, "name": proc.name, "found": True}
+    return {"found": False, "error": f"Process '{name}' not found"}
+
+@mcp.tool()
+async def get_frontmost_application(device_id: str = Field(description="The ID of the device to get")) -> Dict[str, Any]:
+    """
+    获取当前前台应用信息。
+
+    - 返回: {status, application?{identifier,name,pid}, message?}
+    """
+
+    try:
+        frontmost = frida.get_device(device_id).get_frontmost_application()
+        if frontmost:
+            return {
+                "status": "success",
+                "application": {
+                    "identifier": frontmost.identifier,
+                    "name": frontmost.name,
+                    "pid": frontmost.pid
+                }
+            }
+        else:
+            return {
+                "status": "success",
+                "application": None,
+                "message": "No frontmost application found"
+            }
+    except frida.InvalidArgumentError:
+        raise ValueError(f"Device with ID {device_id} not found")
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+# Frida Resource
+
+@mcp.resource("frida://version")
+def get_version() -> str:
+    """Get the Frida version."""
+    return frida.__version__
+
+
+@mcp.resource("frida://usb_processes")
+def get_processes_resource() -> str:
+    """Get a list of all processes from the USB device as a readable string."""
+    _device = frida.get_usb_device()
+    processes = _device.enumerate_processes()
+    return "\n".join([f"PID: {p.pid}, Name: {p.name}" for p in processes])
+
+
+@mcp.resource("frida://devices")
+def get_devices_resource() -> str:
+    """Get a list of all devices as a readable string."""
+    devices = frida.enumerate_devices()
+    return "\n".join([f"ID: {d.id}, Name: {d.name}, Type: {d.type}" for d in devices])
+
+# Js Console Log
+
+@mcp.tool()
 async def get_messages(max_messages: int = 100) -> Dict[str, Any]:
     """
     获取全局 hook/log 文本缓冲（非消费模式）。
@@ -418,45 +585,7 @@ async def get_messages(max_messages: int = 100) -> Dict[str, Any]:
 
 # MCP Tool Handlers using FastMCP decorators
 
-
-@app.tool()
-async def get_frontmost_application() -> Dict[str, Any]:
-    """
-    获取当前前台应用信息。
-
-    - 返回: {status, application?{identifier,name,pid}, message?}
-    """
-    if not await ensure_device_connected():
-        return {
-            "status": "error",
-            "message": "Failed to connect to device. Ensure frida-server is running."
-        }
-    
-    try:
-        frontmost = device.get_frontmost_application()
-        if frontmost:
-            return {
-                "status": "success",
-                "application": {
-                    "identifier": frontmost.identifier,
-                    "name": frontmost.name,
-                    "pid": frontmost.pid
-                }
-            }
-        else:
-            return {
-                "status": "success",
-                "application": None,
-                "message": "No frontmost application found"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
-
-@app.tool()
+@mcp.tool()
 async def list_applications() -> Dict[str, Any]:
     """
     列出设备上的已安装应用（含运行与未运行）。
@@ -494,7 +623,7 @@ async def list_applications() -> Dict[str, Any]:
         }
 
 
-@app.tool()
+@mcp.tool()
 async def attach(
     target: str,
     initial_script: Optional[str] = None,
@@ -595,7 +724,7 @@ async def attach(
         }
 
 
-@app.tool()
+@mcp.tool()
 async def spawn(
     package_name: str,
     initial_script: Optional[str] = None,
@@ -671,4 +800,4 @@ async def spawn(
 
 
 if __name__ == "__main__":
-    app.run()
+    mcp.run()
