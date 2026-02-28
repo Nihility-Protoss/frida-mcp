@@ -13,8 +13,8 @@ from mcp.server.fastmcp import FastMCP
 
 from config.default_config import load_config
 
-from util.device_manager import DeviceManager
 from util.device_manager_android import AndroidDeviceManager
+from util.device_manager_windows import WindowsDeviceManager
 
 # Global state management - simplified
 device: Optional[frida.core.Device] = None
@@ -291,8 +291,10 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
 @app.tool()
 async def start_android_frida_server() -> Dict[str, Any]:
     """
+    启动 Android 设备上的 frida-server。
+
     - 来源: 使用 config.json 的 server_path/server_name/server_port
-    - 返回: {status, path, port, message}
+    - 返回: {status, message}
     """
     dm = AndroidDeviceManager(CONFIG)
     # If already running, no-op
@@ -304,8 +306,6 @@ async def start_android_frida_server() -> Dict[str, Any]:
     ok = dm.start_frida_server()
     return {
         "status": "success" if ok else "error",
-        "path": CONFIG.server_path,
-        "port": CONFIG.server_port,
         "message": "frida-server started" if ok else "failed to start frida-server"
     }
 
@@ -326,13 +326,60 @@ async def stop_android_frida_server() -> Dict[str, Any]:
 
 
 @app.tool()
-async def check_andorid_frida_status() -> Dict[str, Any]:
+async def check_android_frida_status() -> Dict[str, Any]:
     """
     检测 Android frida-server 是否在运行。
 
     - 返回: {status, running}
     """
     dm = AndroidDeviceManager(CONFIG)
+    running = bool(dm.check_frida_status(silent=True))
+    return {"status": "success", "running": running}
+
+
+@app.tool()
+async def start_windows_frida_server() -> Dict[str, Any]:
+    """
+    启动 Windows 本地 frida-server。
+
+    - 来源: 使用 config.json 的 server_path/server_name
+    - 返回: {status, message}
+    """
+    dm = WindowsDeviceManager(CONFIG)
+    if dm.check_frida_status(silent=True):
+        return {
+            "status": "success",
+            "message": "frida-server already running",
+        }
+    ok = dm.start_frida_server()
+    return {
+        "status": "success" if ok else "error",
+        "message": "frida-server started" if ok else "failed to start frida-server"
+    }
+
+
+@app.tool()
+async def stop_windows_frida_server() -> Dict[str, Any]:
+    """
+    停止 Windows 本地 frida-server。
+
+    - 返回: {status, message}
+    """
+    dm = WindowsDeviceManager(CONFIG)
+    if not dm.check_frida_status(silent=True):
+        return {"status": "success", "message": "frida-server already stopped"}
+    ok = dm.stop_frida_server()
+    return {"status": "success" if ok else "error", "message": "frida-server stopped" if ok else "failed to stop frida-server"}
+
+
+@app.tool()
+async def check_windows_frida_status() -> Dict[str, Any]:
+    """
+    检测 Windows 本地 frida-server 是否在运行。
+
+    - 返回: {status, running}
+    """
+    dm = WindowsDeviceManager(CONFIG)
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
@@ -532,16 +579,13 @@ async def attach(
                 _frida_log(f"script load error: {e}")
                 return {"status": "error", "message": str(e)}
         
-        result = {
-            "status": "success",
-            "pid": pid,
-            "target": target,
-            "name": app_name if not target.isdigit() else target,
-            "script_loaded": script_content is not None
-        }
-        
-        result["message"] = "Attached successfully."
-        
+        result = {"status": "success",
+                  "pid": pid,
+                  "target": target,
+                  "name": app_name if not target.isdigit() else target,
+                  "script_loaded": script_content is not None,
+                  "message": "Attached successfully."}
+
         return result
         
     except Exception as e:
@@ -611,15 +655,12 @@ async def spawn(
         
         # No post-resume wait; logs are collected asynchronously in global buffer
         
-        result = {
-            "status": "success",
-            "pid": pid,
-            "package": package_name,
-            "script_loaded": script_content is not None
-        }
-        
-        result["message"] = "App spawned successfully."
-        
+        result = {"status": "success",
+                  "pid": pid,
+                  "package": package_name,
+                  "script_loaded": script_content is not None,
+                  "message": "App spawned successfully."}
+
         return result
         
     except Exception as e:
