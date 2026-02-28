@@ -13,6 +13,7 @@ import platform # New import
 import frida
 from mcp.server.fastmcp import FastMCP
 
+import config.default_config as cfg_module
 from config.default_config import load_config, GLOBAL_CONFIG_PATH, PROJECT_CONFIG_PATH, FridaConfig
 
 from util.frida_server_manager_android import AndroidServerManager
@@ -24,6 +25,10 @@ from util.inject_windows import WindowsInjector
 # Global state management - simplified
 device: Optional[frida.core.Device] = None
 injector: Optional[BaseInjector] = None
+
+# Global MCP server settings
+MCP_HOST: str = "127.0.0.1"
+MCP_PORT: int = 8000
 
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)
@@ -42,69 +47,143 @@ mcp = FastMCP("frida-mcp")
 CONFIG = load_config()
 
 @mcp.tool()
-async def set_mcp_config(
-    scope: str = Field(description="Scope: 'global' (package dir) or 'project' (current folder)"),
+async def config_set(
     server_path: Optional[str] = None,
     server_name: Optional[str] = None,
     server_port: Optional[int] = None,
     device_id: Optional[str] = None,
-    adb_path: Optional[str] = None
+    adb_path: Optional[str] = None,
+    save_to: Optional[str] = Field(default=None, description="Optional: 'global' or 'project' to persist changes immediately.")
 ) -> Dict[str, Any]:
     """
-    即时设置 Frida MCP 配置并保存到 config.json。
+    更新当前内存中的 Frida 配置。
+    
+    Args:
+      - server_path: frida-server 路径
+      - server_name: frida-server 文件名
+      - server_port: frida-server 端口
+      - device_id: 默认设备 ID
+      - adb_path: adb 可执行文件路径
+      - save_to: 可选，'global' 或 'project'，指定是否立即持久化到对应文件
     """
     global CONFIG
-    path = GLOBAL_CONFIG_PATH if scope.lower() == 'global' else PROJECT_CONFIG_PATH
     
-    # Load existing config for that path if it exists
-    current = FridaConfig()
-    if os.path.exists(path):
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            current = FridaConfig.from_dict(data)
-        except:
-            pass
+    # Update memory
+    if server_path is not None: CONFIG.server_path = server_path
+    if server_name is not None: CONFIG.server_name = server_name
+    if server_port is not None: CONFIG.server_port = server_port
+    if device_id is not None: CONFIG.device_id = device_id
+    if adb_path is not None: CONFIG.adb_path = adb_path
     
-    # Update fields only if they are provided
-    if server_path is not None: current.server_path = server_path
-    if server_name is not None: current.server_name = server_name
-    if server_port is not None: current.server_port = server_port
-    if device_id is not None: current.device_id = device_id
-    if adb_path is not None: current.adb_path = adb_path
-    
-    # Save to file
-    current.save(path)
-    
-    # Reload global CONFIG (so other tools use the updated values)
-    CONFIG = load_config()
+    # Optional persistence
+    persisted_to = None
+    if save_to:
+        target_path = GLOBAL_CONFIG_PATH if save_to.lower() == 'global' else cfg_module.PROJECT_CONFIG_PATH
+        CONFIG.save(target_path)
+        persisted_to = target_path
     
     return {
         "status": "success",
-        "scope": scope,
-        "path": path,
-        "current_active_config": CONFIG.to_dict(),
-        "message": f"Configuration saved to {path} and reloaded."
+        "active_config": CONFIG.to_dict(),
+        "persisted_to": persisted_to,
+        "message": "Configuration updated in memory." + (f" Persisted to {persisted_to}." if persisted_to else "")
     }
 
 @mcp.tool()
-async def get_mcp_config() -> Dict[str, Any]:
+async def config_get() -> Dict[str, Any]:
     """
-    获取当前活跃的配置以及全局和项目配置文件的状态。
+    获取当前活跃的配置、全局和项目配置文件的路径及其状态。
     """
     return {
+        "status": "success",
         "active_config": CONFIG.to_dict(),
-        "global_config": {
-            "path": GLOBAL_CONFIG_PATH,
-            "exists": os.path.exists(GLOBAL_CONFIG_PATH)
-        },
-        "project_config": {
-            "path": PROJECT_CONFIG_PATH,
-            "exists": os.path.exists(PROJECT_CONFIG_PATH)
+        "paths": {
+            "global": {
+                "path": GLOBAL_CONFIG_PATH,
+                "exists": os.path.exists(GLOBAL_CONFIG_PATH)
+            },
+            "project": {
+                "path": cfg_module.PROJECT_CONFIG_PATH,
+                "exists": os.path.exists(cfg_module.PROJECT_CONFIG_PATH)
+            }
         }
     }
 
+@mcp.tool()
+async def config_save() -> Dict[str, Any]:
+    """
+    将当前内存中的活跃配置保存到当前项目配置文件 (PROJECT_CONFIG_PATH) 中。
+    """
+    global CONFIG
+    target_path = cfg_module.PROJECT_CONFIG_PATH
+    
+    try:
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        CONFIG.save(target_path)
+        return {
+            "status": "success",
+            "message": f"Active configuration saved to {target_path}",
+            "path": target_path,
+            "config": CONFIG.to_dict()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to save configuration: {str(e)}"
+        }
 
+@mcp.tool()
+async def config_init(
+    new_project_config_path: Optional[str] = Field(default=None, description="Optional custom absolute path for the project config file.")
+) -> Dict[str, Any]:
+    """
+    初始化项目配置。建议在每个项目开始时运行一次。
+    
+    功能:
+    - 将当前活跃的配置写入项目配置文件。
+    - 如果 MCP_HOST 为 0.0.0.0 (允许远程调用)，自动将配置文件覆盖写保存在全局配置目录的新文件 frida.mcp.config.json 中。
+    - 支持通过 new_project_config_path 自定义配置文件路径，并将其设为当前活跃的 PROJECT_CONFIG_PATH。
+    - 如果目标路径不存在，则自动复制当前配置到该位置。
+    """
+    global CONFIG
+    
+    # 1. Determine target path
+    if new_project_config_path:
+        # Custom path provided by user
+        target_path = os.path.abspath(new_project_config_path)
+    elif MCP_HOST == "0.0.0.0":
+        # Remote mode: Save in global directory (frida_mcp/config/frida.mcp.config.json)
+        target_path = os.path.join(os.path.dirname(GLOBAL_CONFIG_PATH), "frida.mcp.config.json")
+    else:
+        # Default local project path
+        target_path = os.path.abspath(cfg_module.PROJECT_CONFIG_PATH)
+    
+    try:
+        # 2. Update the module's PROJECT_CONFIG_PATH variable to reflect current target
+        cfg_module.PROJECT_CONFIG_PATH = target_path
+        
+        # 3. Handle file existence and saving
+        if not os.path.exists(target_path):
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            _frida_log(f"Initializing new config file at: {target_path}")
+        
+        # Save current active CONFIG to the target path
+        CONFIG.save(target_path)
+        
+        # 4. Reload CONFIG to apply the change immediately
+        CONFIG = load_config()
+        
+        return {
+            "status": "success",
+            "message": "Project initialized successfully.",
+            "project_config_path": target_path,
+            "current_active_config": CONFIG.to_dict()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to initialize project: {str(e)}"
+        }
 
 def _resolve_script_content(initial_script: Optional[str], script_file_path: Optional[str]) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
     """
@@ -154,7 +233,6 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     
     if device:
         try:
-            device.id
             if injector:
                 return True
         except:
@@ -619,4 +697,4 @@ async def spawn(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(host=MCP_HOST, port=MCP_PORT)

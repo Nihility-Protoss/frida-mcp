@@ -26,7 +26,7 @@ class FridaConfig:
             json.dump(self.to_dict(), f, indent=2)
 
 GLOBAL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
-PROJECT_CONFIG_PATH = os.path.join(os.getcwd(), "config.json")
+PROJECT_CONFIG_PATH = os.path.join(os.getcwd(), "frida.mcp.config.json")
 
 def load_config() -> FridaConfig:
     config = FridaConfig()
