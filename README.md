@@ -10,8 +10,8 @@
 ## 核心功能
 
 ### 1. 设备与进程管理
-- **设备枚举**: 列出所有连接的 USB 或远程设备。
-- **进程枚举**: 实时列出目标设备上运行的所有进程及其 PID。
+- **设备枚举**: 列出所有连接的 USB、本地或远程设备。
+- **进程管理**: 实时列出目标设备上运行的所有进程，支持按名称搜索进程。
 - **应用列表**: 获取设备上已安装的应用程序信息（包名、名称等）。
 - **前台应用识别**: 自动获取当前设备最前端运行的应用程序。
 
@@ -29,7 +29,7 @@
 ### 4. 灵活的配置管理
 - **分层配置**: 支持全局配置 (`config.json`) 和项目特定配置 (`frida.mcp.config.json`)。
 - **运行时配置**: 提供一系列 `config_` 工具，可在不重启服务器的情况下即时修改配置、保存状态或初始化新项目。
-- **远程支持**: 当 MCP 启动地址设为 `0.0.0.0` 时，自动优化配置文件存储逻辑以支持远程调用。
+- **远程支持**: 当 MCP 启动地址设为 `0.0.0.0` 时，`config_init` 会自动优化配置文件存储逻辑。
 
 ## 快速开始
 
@@ -42,17 +42,38 @@ pip install -r requirements.txt
 ```bash
 python src/frida_mcp/frida_mcp.py
 ```
-默认情况下，服务器将在 `127.0.0.1:8000` 启动。
+默认情况下，服务器将在 `127.0.0.1:8032` 启动。
 
 ## 可用工具 (MCP Tools)
-- `config_get`: 获取当前配置状态。
-- `config_set`: 动态修改内存配置。
-- `config_init`: 初始化项目环境。
-- `config_save`: 持久化当前配置。
-- `list_applications`: 列出已安装应用。
-- `attach` / `spawn`: 执行脚本注入。
-- `get_messages`: 读取 Hook 产生的日志。
-- `start_android_frida_server` / `stop_android_frida_server`: 管理 Android 服务。
+
+### 配置管理
+- `config_get`: 获取当前活跃的配置、全局和项目配置文件的路径及其状态。
+- `config_set`: 更新内存中的配置，可选是否立即持久化到文件。
+- `config_init`: 初始化项目配置。支持自定义路径，并在 `0.0.0.0` 模式下自动处理。
+- `config_save`: 将当前内存中的活跃配置保存到当前项目配置文件中。
+
+### Frida Server 管理
+- `start_android_frida_server`: 启动 Android 设备上的 frida-server。
+- `stop_android_frida_server`:  停止 Android 设备上的 frida-server。
+- `check_android_frida_status`: 检测 Android frida-server 是否在运行。
+- `start_windows_frida_server`: 启动 Windows 本地 frida-server。
+- `stop_windows_frida_server`:  停止 Windows 本地 frida-server。
+- `check_windows_frida_status`: 检测 Windows 本地 frida-server 是否在运行。
+
+### 设备与应用工具
+- `enumerate_devices`: 列出系统连接的所有设备。
+- `get_device`: 根据 ID 获取特定设备信息。
+- `get_usb_device`: 获取连接的 USB 设备信息。
+- `get_local_device`: 获取本地设备信息。
+- `enumerate_processes`: 列出设备上运行的所有进程。
+- `get_process_by_name`: 根据名称在设备上查找进程。
+- `list_applications`: 列出设备上的已安装应用。
+- `get_frontmost_application`: 获取当前前台应用信息。
+
+### 注入与日志
+- `attach`: 附加到运行中的进程并可选注入脚本。
+- `spawn`: 拉起应用并注入脚本。
+- `get_messages`: 获取全局 Hook/Log 文本缓冲。
 
 ---
 *注：本项目仅用于技术研究与学习，请在遵循相关法律法规的前提下使用。*
