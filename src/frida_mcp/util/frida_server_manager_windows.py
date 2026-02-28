@@ -1,11 +1,13 @@
-import frida
 import subprocess
 import os
 from src.frida_mcp.config.default_config import FridaConfig
-from src.frida_mcp.util.device_manager import DeviceManager
+from src.frida_mcp.util.device_manager import FridaServerManager
 
 
-class WindowsDeviceManager(DeviceManager):
+class WindowsServerManager(FridaServerManager):
+    """
+    Implementation of FridaServerManager for local Windows systems.
+    """
     def __init__(self, config: FridaConfig, log_callback=None):
         super().__init__(config, log_callback)
 
@@ -35,16 +37,6 @@ class WindowsDeviceManager(DeviceManager):
     def check_device_connect(self) -> bool:
         """Windows local system is always 'connected'"""
         return True
-
-    def connect_device(self, **kwargs) -> bool:
-        """Connect to local Windows device"""
-        try:
-            self.device = frida.get_local_device()
-            self.log(f"Connected to local Windows device: {self.device.name}")
-            return True
-        except Exception as e:
-            self.log(f"Failed to connect to local device: {str(e)}", error=True)
-            return False
 
     def start_frida_server(self, **kwargs) -> bool:
         """Start frida-server on Windows if not already running"""
@@ -87,9 +79,12 @@ class WindowsDeviceManager(DeviceManager):
             output = result.stdout.lower()
             
             # Patterns to check
-            patterns = ["frida-server.exe", "frida-server",
-                        "frida_server.exe", "frida_server",
-                        self._get_server_name()]
+            patterns = ["frida-server.exe", "frida-server", "frida_server.exe", "frida_server"]
+            if self.config.server_name:
+                config_name = self.config.server_name.lower()
+                patterns.append(config_name)
+                if not config_name.endswith(".exe"):
+                    patterns.append(f"{config_name}.exe")
             
             # Find any match
             found_name = None

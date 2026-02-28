@@ -1,10 +1,12 @@
 import subprocess
 import time
-import frida
-from src.frida_mcp.util.device_manager import DeviceManager
+from src.frida_mcp.util.device_manager import FridaServerManager
 from src.frida_mcp.config.default_config import FridaConfig
 
-class AndroidDeviceManager(DeviceManager):
+class AndroidServerManager(FridaServerManager):
+    """
+    Implementation of FridaServerManager for Android devices via ADB.
+    """
     def __init__(self, config: FridaConfig, log_callback=None):
         super().__init__(config, log_callback)
         # Separate default settings for path and server name
@@ -54,32 +56,6 @@ class AndroidDeviceManager(DeviceManager):
                 
         except Exception as e:
             self.log(f"Error setting up port forwarding: {str(e)}", error=True)
-            return False
-
-    def connect_device(self, **kwargs) -> bool:
-        """Connect to Android USB device via Frida"""
-        try:
-            # Setup port forwarding first
-            if self.setup_port_forward():
-                time.sleep(1)
-            
-            port = self.config.server_port
-            try:
-                # Try direct USB connection first
-                self.device = frida.get_usb_device(timeout=5)
-                self.log(f"Connected to USB device: {self.device.name}")
-                return True
-            except:
-                # If direct USB fails, try via forwarded port
-                self.log(f"Direct USB connection failed, trying via forwarded port 127.0.0.1:{port}...")
-                device_manager = frida.get_device_manager()
-                self.device = device_manager.add_remote_device(f"127.0.0.1:{port}")
-                self.log(f"Connected via forwarded port: 127.0.0.1:{port}")
-                return True
-                
-        except Exception as e:
-            self.log(f"Failed to connect: {str(e)}", error=True)
-            self.log("Tip: Make sure frida-server is running on device", error=True)
             return False
 
     def _get_full_server_path(self) -> str:

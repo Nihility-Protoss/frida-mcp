@@ -6,7 +6,7 @@ class WindowsInjector(BaseInjector):
     """
     Concrete implementation of BaseInjector for Windows devices.
     """
-    async def attach(self, target: str, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    async def attach(self, target: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
         """Attach to a process on Windows and inject script."""
         # Cleanup old session
         if self.session:
@@ -19,13 +19,15 @@ class WindowsInjector(BaseInjector):
         target = target.strip()
         
         try:
+            device = self._get_device(device_id)
+            
             # Determine PID
             if target.isdigit():
                 pid = int(target)
                 app_name = target
             else:
                 # On Windows, enumerate_processes is more common than enumerate_applications
-                processes = self.device.enumerate_processes()
+                processes = device.enumerate_processes()
                 target_process = None
                 
                 for proc in processes:
@@ -43,7 +45,7 @@ class WindowsInjector(BaseInjector):
                 app_name = target_process.name
             
             # Attach
-            self.session = self.device.attach(pid)
+            self.session = device.attach(pid)
             self._bind_session_events(self.session)
             
             # Inject script
@@ -67,7 +69,7 @@ class WindowsInjector(BaseInjector):
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    async def spawn(self, program_name: str, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    async def spawn(self, program_name: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
         """Spawn a program on Windows and inject script before resuming."""
         # Cleanup old session
         if self.session:
@@ -78,9 +80,11 @@ class WindowsInjector(BaseInjector):
             self.session = None
 
         try:
+            device = self._get_device(device_id)
+            
             # Spawn
-            pid = self.device.spawn([program_name]) # Frida spawn expects a list of arguments
-            self.session = self.device.attach(pid)
+            pid = device.spawn([program_name]) # Frida spawn expects a list of arguments
+            self.session = device.attach(pid)
             self._bind_session_events(self.session)
             
             # Inject script
@@ -93,7 +97,7 @@ class WindowsInjector(BaseInjector):
                     return {"status": "error", "message": str(e)}
             
             # Resume
-            self.device.resume(pid)
+            device.resume(pid)
             
             return {
                 "status": "success",

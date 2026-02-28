@@ -6,7 +6,7 @@ class AndroidInjector(BaseInjector):
     """
     Concrete implementation of BaseInjector for Android devices.
     """
-    async def attach(self, target: str, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    async def attach(self, target: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
         """Attach to a process on Android and inject script."""
         # Cleanup old session
         if self.session:
@@ -19,12 +19,14 @@ class AndroidInjector(BaseInjector):
         target = target.strip()
         
         try:
+            device = self._get_device(device_id)
+            
             # Determine PID
             if target.isdigit():
                 pid = int(target)
                 app_name = target
             else:
-                applications = self.device.enumerate_applications()
+                applications = device.enumerate_applications()
                 target_app = None
                 
                 for app in applications:
@@ -42,7 +44,7 @@ class AndroidInjector(BaseInjector):
                 app_name = target_app.name
             
             # Attach
-            self.session = self.device.attach(pid)
+            self.session = device.attach(pid)
             self._bind_session_events(self.session)
             
             # Inject script
@@ -66,7 +68,7 @@ class AndroidInjector(BaseInjector):
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    async def spawn(self, package_name: str, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    async def spawn(self, package_name: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
         """Spawn an app on Android and inject script before resuming."""
         # Cleanup old session
         if self.session:
@@ -77,9 +79,11 @@ class AndroidInjector(BaseInjector):
             self.session = None
 
         try:
+            device = self._get_device(device_id)
+            
             # Spawn
-            pid = self.device.spawn(package_name)
-            self.session = self.device.attach(pid)
+            pid = device.spawn(package_name)
+            self.session = device.attach(pid)
             self._bind_session_events(self.session)
             
             # Inject script
@@ -92,7 +96,7 @@ class AndroidInjector(BaseInjector):
                     return {"status": "error", "message": str(e)}
             
             # Resume
-            self.device.resume(pid)
+            device.resume(pid)
             
             return {
                 "status": "success",

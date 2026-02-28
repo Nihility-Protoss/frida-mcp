@@ -14,16 +14,15 @@ from mcp.server.fastmcp import FastMCP
 
 from config.default_config import load_config
 
-from util.device_manager_android import AndroidDeviceManager
-from util.device_manager_windows import WindowsDeviceManager
-from util.inject import BaseInjector # New import
+from util.frida_server_manager_android import AndroidServerManager
+from util.frida_server_manager_windows import WindowsServerManager
+from util.inject import BaseInjector
 from util.inject_android import AndroidInjector
-from util.inject_windows import WindowsInjector # New import
+from util.inject_windows import WindowsInjector
 
 # Global state management - simplified
 device: Optional[frida.core.Device] = None
 injector: Optional[BaseInjector] = None
-device_manager: Optional[DeviceManager] = None # New global variable
 
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)
@@ -85,78 +84,58 @@ def _resolve_script_content(initial_script: Optional[str], script_file_path: Opt
 # Internal helper function for device connection
 async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     """
-    Internal helper to ensure device is connected.
-    Returns True if successful, False otherwise.
+    Internal helper to ensure device is connected and managers are initialized.
     """
-    global device, injector, device_manager
+    global device, injector
     
     if device:
         try:
-            # Test if device is still connected
             device.id
-            if injector and device_manager: # Ensure injector and device_manager are also set if device is connected
+            if injector:
                 return True
         except:
             device = None
             injector = None
-            device_manager = None
     
-    # Determine OS and choose appropriate injector and device manager
     current_os = platform.system()
     
-    # Resolution order (minimal change):
-    # 1) Explicit device_id param
-    # 2) device_id from CONFIG
-    # 3) USB device
-    # 4) Remote device via localhost:server_port (requires external port-forward)
+    # Initialize Injector based on OS
+    if current_os == "Windows":
+        injector = WindowsInjector(messages_buffer, _frida_log)
+    else:
+        injector = AndroidInjector(messages_buffer, _frida_log)
+
+    # Device acquisition logic
     device_id_to_use = device_id or CONFIG.device_id
     try:
         if device_id_to_use:
             device = frida.get_device(device_id_to_use)
-            if current_os == "Windows":
-                injector = WindowsInjector(device, messages_buffer, _frida_log)
-                device_manager = WindowsDeviceManager(CONFIG)
-            else: # Default to Android for other OS or if not Windows
-                injector = AndroidInjector(device, messages_buffer, _frida_log)
-                device_manager = AndroidDeviceManager(CONFIG)
             return True
-    except Exception:
-        pass
+    except: pass
+
     try:
-        device = frida.get_usb_device(timeout=5)
-        if current_os == "Windows":
-            injector = WindowsInjector(device, messages_buffer, _frida_log)
-            device_manager = WindowsDeviceManager(CONFIG)
-        else: # Default to Android for other OS or if not Windows
-            injector = AndroidInjector(device, messages_buffer, _frida_log)
-            device_manager = AndroidDeviceManager(CONFIG)
+        device = frida.get_usb_device(timeout=1)
         return True
-    except Exception:
-        pass
+    except: pass
+
     try:
         port = int(CONFIG.server_port or 27042)
-        # Ensure ADB port forwarding before attempting remote connect (Android specific)
+        # For Android, ensure ADB port forwarding before attempting remote connect
         if current_os != "Windows":
             try:
-                dm = AndroidDeviceManager(CONFIG)
-                dm.setup_port_forward()
+                # Temporarily create an AndroidServerManager to setup port forwarding
+                temp_server_manager = AndroidServerManager(CONFIG)
+                temp_server_manager.setup_port_forward()
                 time.sleep(0.5)
-            except Exception:
-                pass
+            except: pass
         
         manager = frida.get_device_manager()
         device_remote = manager.add_remote_device(f"127.0.0.1:{port}")
         if device_remote:
             device = device_remote
-            if current_os == "Windows":
-                injector = WindowsInjector(device, messages_buffer, _frida_log)
-                device_manager = WindowsDeviceManager(CONFIG)
-            else: # Default to Android for other OS or if not Windows
-                injector = AndroidInjector(device, messages_buffer, _frida_log)
-                device_manager = AndroidDeviceManager(CONFIG)
             return True
-    except Exception:
-        pass
+    except: pass
+
     return False
 
 # Frida Server Start/Stop
@@ -169,8 +148,7 @@ async def start_android_frida_server() -> Dict[str, Any]:
     - 来源: 使用 config.json 的 server_path/server_name/server_port
     - 返回: {status, message}
     """
-    dm = AndroidDeviceManager(CONFIG)
-    # If already running, no-op
+    dm = AndroidServerManager(CONFIG)
     if dm.check_frida_status(silent=True):
         return {
             "status": "success",
@@ -190,8 +168,7 @@ async def stop_android_frida_server() -> Dict[str, Any]:
 
     - 返回: {status, message}
     """
-    dm = AndroidDeviceManager(CONFIG)
-    # If not running, no-op
+    dm = AndroidServerManager(CONFIG)
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
     ok = dm.stop_frida_server()
@@ -205,7 +182,7 @@ async def check_android_frida_status() -> Dict[str, Any]:
 
     - 返回: {status, running}
     """
-    dm = AndroidDeviceManager(CONFIG)
+    dm = AndroidServerManager(CONFIG)
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
@@ -218,7 +195,7 @@ async def start_windows_frida_server() -> Dict[str, Any]:
     - 来源: 使用 config.json 的 server_path/server_name
     - 返回: {status, message}
     """
-    dm = WindowsDeviceManager(CONFIG)
+    dm = WindowsServerManager(CONFIG)
     if dm.check_frida_status(silent=True):
         return {
             "status": "success",
@@ -238,7 +215,7 @@ async def stop_windows_frida_server() -> Dict[str, Any]:
 
     - 返回: {status, message}
     """
-    dm = WindowsDeviceManager(CONFIG)
+    dm = WindowsServerManager(CONFIG)
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
     ok = dm.stop_frida_server()
@@ -252,7 +229,7 @@ async def check_windows_frida_status() -> Dict[str, Any]:
 
     - 返回: {status, running}
     """
-    dm = WindowsDeviceManager(CONFIG)
+    dm = WindowsServerManager(CONFIG)
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
@@ -459,26 +436,17 @@ async def get_messages(max_messages: int = 100) -> Dict[str, Any]:
 # MCP Tool Handlers using FastMCP decorators
 
 @mcp.tool()
-async def list_applications() -> Dict[str, Any]:
+async def list_applications(
+    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to list applications from.")
+) -> Dict[str, Any]:
     """
     列出设备上的已安装应用（含运行与未运行）。
 
     - 返回: {status, count, applications:[{identifier,name,pid?}]}
     """
-    if not await ensure_device_connected():
-        return {
-            "status": "error",
-            "message": "Failed to connect to device. Ensure frida-server is running."
-        }
-    
-    if not device_manager:
-        return {
-            "status": "error",
-            "message": "Device manager not initialized. Device not connected?"
-        }
-
     try:
-        applications = device_manager.get_applications()
+        _device = frida.get_device(device_id) if device_id else device
+        applications = _device.enumerate_applications()
         app_list = []
         for app in applications:
             app_list.append({
@@ -505,6 +473,7 @@ async def list_applications() -> Dict[str, Any]:
 @mcp.tool()
 async def attach(
     target: str,
+    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to attach to."),
     initial_script: Optional[str] = None,
     script_file_path: Optional[str] = None,
     output_file: Optional[str] = None
@@ -514,6 +483,7 @@ async def attach(
 
     Args:
       - target: PID 字符串或包名
+      - device_id: 可选的设备 ID
       - initial_script: 可选注入的 Frida JS 代码字符串
       - script_file_path: 可选注入的 JS 文件绝对路径（优先于 initial_script）
       - output_file: 可选的本地电脑文件路径，用于保存 hook 输出（非安卓设备路径）
@@ -522,7 +492,7 @@ async def attach(
       - {status, pid, target, name, script_loaded, message}
     """
     # Ensure device is connected
-    if not await ensure_device_connected():
+    if not await ensure_device_connected(device_id):
         return {
             "status": "error",
             "message": "Failed to connect to device. Ensure frida-server is running."
@@ -540,7 +510,7 @@ async def attach(
         return error_response
         
     if injector:
-        return await injector.attach(target, script_content, output_file)
+        return await injector.attach(target, device_id, script_content, output_file)
     else:
         return {"status": "error", "message": "Injector not initialized. Device not connected?"}
 
@@ -548,6 +518,7 @@ async def attach(
 @mcp.tool()
 async def spawn(
     package_name: str,
+    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to spawn on."),
     initial_script: Optional[str] = None,
     script_file_path: Optional[str] = None,
     output_file: Optional[str] = None
@@ -557,6 +528,7 @@ async def spawn(
 
     Args:
       - package_name: 应用包名
+      - device_id: 可选的设备 ID
       - initial_script: 可选注入的 Frida JS 代码字符串
       - script_file_path: 可选注入的 JS 文件绝对路径（优先于 initial_script）
       - output_file: 可选的本地电脑文件路径，用于保存 hook 输出（非安卓设备路径）
@@ -565,7 +537,7 @@ async def spawn(
       - {status, pid, package, script_loaded, message}
     """
     # Ensure device is connected
-    if not await ensure_device_connected():
+    if not await ensure_device_connected(device_id):
         return {
             "status": "error",
             "message": "Failed to connect to device. Ensure frida-server is running."
@@ -577,7 +549,7 @@ async def spawn(
         return error_response
         
     if injector:
-        return await injector.spawn(package_name, script_content, output_file)
+        return await injector.spawn(package_name, device_id, script_content, output_file)
     else:
         return {"status": "error", "message": "Injector not initialized. Device not connected?"}
 

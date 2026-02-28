@@ -8,10 +8,9 @@ class BaseInjector(ABC):
     """
     Abstract base class for handling Frida injection.
     Provides common functionalities like script wrapping, message collection,
-    and script loading, while deferring device-specific logic to subclasses.
+    and script loading.
     """
-    def __init__(self, device: frida.core.Device, messages_buffer: Deque[str], frida_log_callback):
-        self.device = device
+    def __init__(self, messages_buffer: Deque[str], frida_log_callback):
         self.messages_buffer = messages_buffer
         self.frida_log = frida_log_callback
         self.active_scripts: List[frida.core.Script] = []
@@ -20,6 +19,17 @@ class BaseInjector(ABC):
     def _log(self, text: str) -> None:
         if self.frida_log:
             self.frida_log(text)
+
+    def _get_device(self, device_id: Optional[str] = None) -> frida.core.Device:
+        """Helper to get Frida device by ID or default to USB/Local."""
+        if device_id:
+            return frida.get_device(device_id)
+        
+        # Default behavior: try USB first, then local
+        try:
+            return frida.get_usb_device(timeout=1)
+        except:
+            return frida.get_local_device()
 
     def _bind_session_events(self, sess: frida.core.Session) -> None:
         """Bind session events to capture detach reasons."""
@@ -138,11 +148,11 @@ class BaseInjector(ABC):
         return True
 
     @abstractmethod
-    async def attach(self, target: str, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    async def attach(self, target: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
         """Attach to a process and inject script."""
         pass
 
     @abstractmethod
-    async def spawn(self, package_name: str, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    async def spawn(self, package_name: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
         """Spawn an app and inject script before resuming."""
         pass
