@@ -273,7 +273,7 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
         port = int(CONFIG.get("server_port") or 27042)
         # Ensure ADB port forwarding before attempting remote connect
         try:
-            dm = DeviceManager()
+            dm = AndroidDeviceManager()
             dm.setup_port_forward(str(port))
             time.sleep(0.5)
         except Exception:
