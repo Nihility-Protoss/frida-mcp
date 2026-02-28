@@ -1,9 +1,6 @@
-
-import time
-import frida
 import subprocess
 
-from util.device_manager import DeviceManager
+from src.frida_mcp.util.device_manager import DeviceManager
 
 class AndroidDeviceManager(DeviceManager):
     def __init__(self, log_callback=None):

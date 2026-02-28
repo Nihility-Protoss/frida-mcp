@@ -1,4 +1,4 @@
-from util.device_manager import DeviceManager
+from src.frida_mcp.util.device_manager import DeviceManager
 
 
 class WindowsDeviceManager(DeviceManager):
