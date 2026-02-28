@@ -4,6 +4,7 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 
 import time
 import os
+import json # New import
 from typing import Optional, Dict, Any, Deque, List
 from collections import deque
 from pydantic import Field
@@ -12,7 +13,7 @@ import platform # New import
 import frida
 from mcp.server.fastmcp import FastMCP
 
-from config.default_config import load_config
+from config.default_config import load_config, GLOBAL_CONFIG_PATH, PROJECT_CONFIG_PATH, FridaConfig
 
 from util.frida_server_manager_android import AndroidServerManager
 from util.frida_server_manager_windows import WindowsServerManager
@@ -39,6 +40,69 @@ mcp = FastMCP("frida-mcp")
 
 
 CONFIG = load_config()
+
+@mcp.tool()
+async def set_mcp_config(
+    scope: str = Field(description="Scope: 'global' (package dir) or 'project' (current folder)"),
+    server_path: Optional[str] = None,
+    server_name: Optional[str] = None,
+    server_port: Optional[int] = None,
+    device_id: Optional[str] = None,
+    adb_path: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    即时设置 Frida MCP 配置并保存到 config.json。
+    """
+    global CONFIG
+    path = GLOBAL_CONFIG_PATH if scope.lower() == 'global' else PROJECT_CONFIG_PATH
+    
+    # Load existing config for that path if it exists
+    current = FridaConfig()
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            current = FridaConfig.from_dict(data)
+        except:
+            pass
+    
+    # Update fields only if they are provided
+    if server_path is not None: current.server_path = server_path
+    if server_name is not None: current.server_name = server_name
+    if server_port is not None: current.server_port = server_port
+    if device_id is not None: current.device_id = device_id
+    if adb_path is not None: current.adb_path = adb_path
+    
+    # Save to file
+    current.save(path)
+    
+    # Reload global CONFIG (so other tools use the updated values)
+    CONFIG = load_config()
+    
+    return {
+        "status": "success",
+        "scope": scope,
+        "path": path,
+        "current_active_config": CONFIG.to_dict(),
+        "message": f"Configuration saved to {path} and reloaded."
+    }
+
+@mcp.tool()
+async def get_mcp_config() -> Dict[str, Any]:
+    """
+    获取当前活跃的配置以及全局和项目配置文件的状态。
+    """
+    return {
+        "active_config": CONFIG.to_dict(),
+        "global_config": {
+            "path": GLOBAL_CONFIG_PATH,
+            "exists": os.path.exists(GLOBAL_CONFIG_PATH)
+        },
+        "project_config": {
+            "path": PROJECT_CONFIG_PATH,
+            "exists": os.path.exists(PROJECT_CONFIG_PATH)
+        }
+    }
 
 
 

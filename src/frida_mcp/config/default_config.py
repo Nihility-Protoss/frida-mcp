@@ -25,13 +25,16 @@ class FridaConfig:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2)
 
+GLOBAL_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+PROJECT_CONFIG_PATH = os.path.join(os.getcwd(), "config.json")
+
 def load_config() -> FridaConfig:
     config = FridaConfig()
     
-    # Try relative to this file first, then CWD
+    # Try project config first (CWD), then global config (package dir)
     candidates = [
-        os.path.join(os.path.dirname(__file__), "config.json"),
-        os.path.join(os.getcwd(), "config.json"),
+        PROJECT_CONFIG_PATH,
+        GLOBAL_CONFIG_PATH,
     ]
     
     for cfg in candidates:
