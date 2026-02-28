@@ -28,7 +28,7 @@ injector: Optional[BaseInjector] = None
 
 # Global MCP server settings
 MCP_HOST: str = "127.0.0.1"
-MCP_PORT: int = 8000
+MCP_PORT: int = 8032
 
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)

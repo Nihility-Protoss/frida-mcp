@@ -1,0 +1,3 @@
+frida==17.7.3
+fastmcp
+pydantic
