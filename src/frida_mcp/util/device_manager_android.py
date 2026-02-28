@@ -2,37 +2,45 @@ import subprocess
 import time
 import frida
 from src.frida_mcp.util.device_manager import DeviceManager
+from src.frida_mcp.config.default_config import FridaConfig
 
 class AndroidDeviceManager(DeviceManager):
-    def __init__(self, log_callback=None):
-        super().__init__(log_callback)
-        self.frida_server_path = "/data/local/tmp/frida-server"
+    def __init__(self, config: FridaConfig, log_callback=None):
+        super().__init__(config, log_callback)
+        # Separate default settings for path and server name
+        if not self.config.server_path:
+            self.config.server_path = "/data/local/tmp"
+        
+        if not self.config.server_name:
+            self.config.server_name = "frida-server"
 
     def check_device_connect(self) -> bool:
         """Check if ADB is available and a device is connected"""
         try:
-            result = subprocess.run(["adb", "devices"], capture_output=True, text=True)
+            cmd = [self.config.adb_path, "devices"]
+            result = subprocess.run(cmd, capture_output=True, text=True)
             if "device" in result.stdout and not result.stdout.strip().endswith("devices"):
                 return True
             else:
-                self.log("No Android device connected via ADB", error=True)
+                self.log(f"No Android device connected via {self.config.adb_path}", error=True)
                 return False
         except FileNotFoundError:
-            self.log("ADB not found in PATH", error=True)
+            self.log(f"{self.config.adb_path} not found in PATH", error=True)
             return False
 
-    def setup_port_forward(self, port="27042"):
-        """Setup ADB port forwarding"""
+    def setup_port_forward(self):
+        """Setup ADB port forwarding using config port"""
         if not self.check_device_connect():
             return False
         
+        port = str(self.config.server_port)
         try:
             # Remove existing port forwarding
-            subprocess.run(["adb", "forward", "--remove-all"], capture_output=True)
+            subprocess.run([self.config.adb_path, "forward", "--remove-all"], capture_output=True)
             
             # Setup new port forwarding
             result = subprocess.run(
-                ["adb", "forward", f"tcp:{port}", f"tcp:{port}"],
+                [self.config.adb_path, "forward", f"tcp:{port}", f"tcp:{port}"],
                 capture_output=True,
                 text=True
             )
@@ -48,13 +56,14 @@ class AndroidDeviceManager(DeviceManager):
             self.log(f"Error setting up port forwarding: {str(e)}", error=True)
             return False
 
-    def connect_device(self, port="27042", **kwargs) -> bool:
+    def connect_device(self, **kwargs) -> bool:
         """Connect to Android USB device via Frida"""
         try:
             # Setup port forwarding first
-            if self.setup_port_forward(port):
+            if self.setup_port_forward():
                 time.sleep(1)
             
+            port = self.config.server_port
             try:
                 # Try direct USB connection first
                 self.device = frida.get_usb_device(timeout=5)
@@ -62,7 +71,7 @@ class AndroidDeviceManager(DeviceManager):
                 return True
             except:
                 # If direct USB fails, try via forwarded port
-                self.log("Direct USB connection failed, trying via forwarded port...")
+                self.log(f"Direct USB connection failed, trying via forwarded port 127.0.0.1:{port}...")
                 device_manager = frida.get_device_manager()
                 self.device = device_manager.add_remote_device(f"127.0.0.1:{port}")
                 self.log(f"Connected via forwarded port: 127.0.0.1:{port}")
@@ -73,53 +82,74 @@ class AndroidDeviceManager(DeviceManager):
             self.log("Tip: Make sure frida-server is running on device", error=True)
             return False
 
-    def start_frida_server(self, server_path=None, port="27042", **kwargs) -> bool:
-        """Start frida-server on the Android device"""
+    def _get_full_server_path(self) -> str:
+        """Get full path to frida-server on device"""
+        path = self.config.server_path
+        name = self.config.server_name
+        
+        if not name:
+            return path
+            
+        if path.endswith(name):
+            return path
+            
+        if path.endswith('/'):
+            return f"{path}{name}"
+        return f"{path}/{name}"
+
+    def _get_server_name(self) -> str:
+        """Get the filename of frida-server"""
+        if self.config.server_name:
+            return self.config.server_name
+        return self.config.server_path.split('/')[-1]
+
+    def start_frida_server(self, **kwargs) -> bool:
+        """Start frida-server on the Android device using config"""
         if not self.check_device_connect():
             return False
         
-        if server_path:
-            self.frida_server_path = server_path
+        server_path = self._get_full_server_path()
+        server_name = self._get_server_name()
         
-        self.log(f"Starting frida-server at {self.frida_server_path}...")
+        self.log(f"Starting frida-server at {server_path}...")
         
         # Auto setup port forwarding
-        self.setup_port_forward(port)
+        self.setup_port_forward()
         
         # Kill existing frida-server processes
-        subprocess.run(["adb", "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
-        subprocess.run(["adb", "shell", "su", "-c", "pkill", "-f", self.frida_server_path.split('/')[-1]], capture_output=True)
+        subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
+        subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", server_name], capture_output=True)
         time.sleep(1)
         
         # First check if file exists and set permissions
         try:
             # Check if file exists
             check_result = subprocess.run(
-                ["adb", "shell", "su", "-c", f"ls -la {self.frida_server_path}"],
+                [self.config.adb_path, "shell", "su", "-c", f"ls -la {server_path}"],
                 capture_output=True,
                 text=True
             )
             
             if "No such file" in check_result.stderr or "No such file" in check_result.stdout:
-                self.log(f"File not found: {self.frida_server_path}", error=True)
+                self.log(f"File not found: {server_path}", error=True)
                 self.log("Please check the path and ensure frida-server is pushed to device", error=True)
                 return False
             
             # Set execute permission
             subprocess.run(
-                ["adb", "shell", "su", "-c", f"chmod 755 {self.frida_server_path}"],
+                [self.config.adb_path, "shell", "su", "-c", f"chmod 755 {server_path}"],
                 capture_output=True
             )
             
             # Start frida-server with different methods based on path
-            if "/tmp" in self.frida_server_path or "/data/local/tmp" in self.frida_server_path:
-                cmd = f"{self.frida_server_path} -D"
+            if "/tmp" in server_path or "/data/local/tmp" in server_path:
+                cmd = f"{server_path} -D"
             else:
-                cmd = f"cd {'/'.join(self.frida_server_path.split('/')[:-1])} && ./{self.frida_server_path.split('/')[-1]} -D"
+                cmd = f"cd {'/'.join(server_path.split('/')[:-1])} && ./{server_path.split('/')[-1]} -D"
             
             # Start in background
             start_result = subprocess.run(
-                ["adb", "shell"],
+                [self.config.adb_path, "shell"],
                 input=f"su -c '{cmd} &'\nexit\n",
                 capture_output=True,
                 text=True,
@@ -138,7 +168,7 @@ class AndroidDeviceManager(DeviceManager):
                 
                 # Try daemonize approach
                 subprocess.run(
-                    ["adb", "shell", "su", "-c", f"daemonize {self.frida_server_path}"],
+                    [self.config.adb_path, "shell", "su", "-c", f"daemonize {server_path}"],
                     capture_output=True,
                     timeout=2
                 )
@@ -174,11 +204,12 @@ class AndroidDeviceManager(DeviceManager):
             return False
         
         self.log("Stopping frida-server...")
+        server_name = self._get_server_name()
         
         try:
             # Kill by process name patterns
-            subprocess.run(["adb", "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
-            subprocess.run(["adb", "shell", "su", "-c", "pkill", "-f", self.frida_server_path.split('/')[-1]], capture_output=True)
+            subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
+            subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", server_name], capture_output=True)
             
             self.log("Frida server stopped")
             return True
@@ -192,11 +223,11 @@ class AndroidDeviceManager(DeviceManager):
         if not self.check_device_connect():
             return False
         
-        server_name = self.frida_server_path.split('/')[-1]
+        server_name = self._get_server_name()
         
         try:
             result = subprocess.run(
-                ["adb", "shell", "ps", "-A"],
+                [self.config.adb_path, "shell", "ps", "-A"],
                 capture_output=True,
                 text=True
             )
@@ -229,12 +260,12 @@ class AndroidDeviceManager(DeviceManager):
         
         try:
             # First kill existing processes
-            subprocess.run(["adb", "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
+            subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
             time.sleep(1)
             
             # Execute the custom command
             result = subprocess.run(
-                ["adb", "shell"],
+                [self.config.adb_path, "shell"],
                 input=f"{command}\nexit\n",
                 capture_output=True,
                 text=True,

@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 import frida
+from src.frida_mcp.config.default_config import FridaConfig
 
 
 class DeviceManager(ABC):
-    def __init__(self, log_callback=None):
+    def __init__(self, config: FridaConfig, log_callback=None):
         self.device = None
         self.log = log_callback or print
-        self.frida_server_path = ""
+        self.config = config
     
     @abstractmethod
     def check_device_connect(self) -> bool:

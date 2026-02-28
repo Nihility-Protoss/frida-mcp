@@ -257,7 +257,7 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     # 2) device_id from CONFIG
     # 3) USB device
     # 4) Remote device via localhost:server_port (requires external port-forward)
-    device_id_to_use = device_id or CONFIG.get("device_id")
+    device_id_to_use = device_id or CONFIG.device_id
     try:
         if device_id_to_use:
             device = frida.get_device(device_id_to_use)
@@ -270,11 +270,11 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     except Exception:
         pass
     try:
-        port = int(CONFIG.get("server_port") or 27042)
+        port = int(CONFIG.server_port or 27042)
         # Ensure ADB port forwarding before attempting remote connect
         try:
-            dm = AndroidDeviceManager()
-            dm.setup_port_forward(str(port))
+            dm = AndroidDeviceManager(CONFIG)
+            dm.setup_port_forward()
             time.sleep(0.5)
         except Exception:
             pass
@@ -288,41 +288,24 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     return False
 
 
-# Resolve frida-server path from CONFIG with minimal rules
-def _resolve_server_path_from_config() -> str:
-    base = (CONFIG.get("server_path") or "").rstrip("/")
-    name = CONFIG.get("server_name")
-    if base and name:
-        return f"{base}/{name}"
-    if base:
-        return base
-    if name:
-        return f"/data/local/tmp/{name}"
-    return "/data/local/tmp/frida-server"
-
-
 @app.tool()
 async def start_android_frida_server() -> Dict[str, Any]:
     """
-    启动 Android 设备上的 frida-server。
-
     - 来源: 使用 config.json 的 server_path/server_name/server_port
     - 返回: {status, path, port, message}
     """
-    dm = AndroidDeviceManager()
+    dm = AndroidDeviceManager(CONFIG)
     # If already running, no-op
     if dm.check_frida_status(silent=True):
         return {
             "status": "success",
             "message": "frida-server already running",
         }
-    path = _resolve_server_path_from_config()
-    port_value = int(CONFIG.get("server_port") or 27042)
-    ok = dm.start_frida_server(server_path=path, port=str(port_value))
+    ok = dm.start_frida_server()
     return {
         "status": "success" if ok else "error",
-        "path": path,
-        "port": port_value,
+        "path": CONFIG.server_path,
+        "port": CONFIG.server_port,
         "message": "frida-server started" if ok else "failed to start frida-server"
     }
 
@@ -334,7 +317,7 @@ async def stop_android_frida_server() -> Dict[str, Any]:
 
     - 返回: {status, message}
     """
-    dm = AndroidDeviceManager()
+    dm = AndroidDeviceManager(CONFIG)
     # If not running, no-op
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
@@ -349,7 +332,7 @@ async def check_andorid_frida_status() -> Dict[str, Any]:
 
     - 返回: {status, running}
     """
-    dm = AndroidDeviceManager()
+    dm = AndroidDeviceManager(CONFIG)
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
