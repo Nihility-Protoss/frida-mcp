@@ -3,11 +3,11 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 """
 
 import time
-import asyncio
 import os
 from typing import Optional, Dict, Any, Deque, List
 from collections import deque
 from pydantic import Field
+import platform # New import
 
 import frida
 from mcp.server.fastmcp import FastMCP
@@ -16,16 +16,17 @@ from config.default_config import load_config
 
 from util.device_manager_android import AndroidDeviceManager
 from util.device_manager_windows import WindowsDeviceManager
+from util.inject import BaseInjector # New import
+from util.inject_android import AndroidInjector
+from util.inject_windows import WindowsInjector # New import
 
 # Global state management - simplified
 device: Optional[frida.core.Device] = None
-session: Optional[frida.core.Session] = None
+injector: Optional[BaseInjector] = None
+device_manager: Optional[DeviceManager] = None # New global variable
 
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)
-
-# Keep strong references to loaded scripts to prevent GC unloading
-active_scripts = []
 
 # Append client-side Frida logs to the global buffer
 def _frida_log(text: str) -> None:
@@ -34,167 +35,13 @@ def _frida_log(text: str) -> None:
     except Exception:
         pass
 
-# Bind session events to capture detach reasons (e.g., target crash/kill)
-def _bind_session_events(sess: frida.core.Session) -> None:
-    try:
-        def on_detached(reason):
-            _frida_log(f"session detached: {reason}")
-        sess.on('detached', on_detached)
-    except Exception as e:
-        _frida_log(f"bind detached failed: {e}")
-
 # Initialize FastMCP
 mcp = FastMCP("frida-mcp")
+
 
 CONFIG = load_config()
 
 
-# Independent script wrapper function to prevent stdout pollution
-def wrap_script_for_mcp(user_script: str) -> str:
-    """
-    独立函数，包装用户脚本，重定向console.log避免stdout污染，支持Gson转换对象
-    
-    Args:
-        user_script: 用户提供的JavaScript脚本
-        
-    Returns:
-        包装后的脚本，console.log被重定向到send()，对象自动Gson转换
-    """
-    return f"""
-    // 智能对象转字符串函数（优先使用Gson）
-    function safeStringify(obj) {{
-        if (obj === null) return 'null';
-        if (obj === undefined) return 'undefined';
-        
-        // 基本类型直接返回
-        if (typeof obj === 'string') return obj;
-        if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
-        
-        // 对象类型尝试转换
-        try {{
-            // 优先尝试Gson（如果应用有Gson库）
-            var Gson = Java.use('com.google.gson.Gson');
-            var gson = Gson.$new();
-            return gson.toJson(obj);
-        }} catch (gsonError) {{
-            try {{
-                // Fallback到toString()
-                return obj.toString();
-            }} catch (toStringError) {{
-                try {{
-                    // 最后尝试获取类名
-                    return '[' + (obj.$className || 'Unknown') + ' Object]';
-                }} catch (classError) {{
-                    return '[Unparseable Object]';
-                }}
-            }}
-        }}
-    }}
-    
-    // 重定向console.log到send()避免stdout污染
-    console.log = function() {{
-        var message = Array.prototype.slice.call(arguments).map(function(arg) {{
-            return safeStringify(arg);
-        }}).join(' ');
-        send({{'type': 'log', 'message': message}});
-    }};
-    
-    // 用户脚本
-    {user_script}
-    """
-
-
-# Helper function to create message collector for script output
-def create_message_collector(external_buffer: Optional[Deque[str]] = None, output_file: Optional[str] = None):
-    """
-    Creates a message handler that collects Frida script output for later retrieval.
-
-    Args:
-        external_buffer: Optional buffer to append messages to
-        output_file: Optional LOCAL file path to write messages to (NOT Android device path)
-
-    Returns:
-        Tuple of (message_handler function, messages list)
-    """
-    messages = []
-    
-    # If output file exists, clear it; if not, it will be created on first write
-    if output_file and os.path.exists(output_file):
-        try:
-            open(output_file, 'w', encoding='utf-8').close()
-        except Exception:
-            pass
-
-    def on_message(message, data):
-        # Handle different message types
-        if message.get('type') == 'send':
-            payload = message.get('payload', {})
-            if isinstance(payload, dict) and payload.get('type') == 'log':
-                # This is a console.log message redirected by our wrapper
-                text = payload.get('message', str(payload))
-            else:
-                # Other send() messages
-                text = str(payload)
-        elif message.get('type') == 'error':
-            # Script errors
-            text = f"[Error] {message.get('stack', message.get('description', str(message)))}"
-        else:
-            # Other message types
-            if 'payload' in message:
-                text = str(message['payload'])
-            else:
-                text = str(message)
-
-        messages.append(text)
-        if external_buffer is not None:
-            external_buffer.append(text)
-
-        # Write to LOCAL output file if specified (saved on computer running MCP server)
-        if output_file:
-            try:
-                with open(output_file, 'a', encoding='utf-8') as f:
-                    f.write(f"{text}\n")
-            except Exception:
-                pass  # Silently handle file write errors to avoid disrupting the main flow
-
-    return on_message, messages
-
-
-# Helper to load initial script and wire global message buffer
-async def _load_script_with_global_buffer(session: frida.core.Session, initial_script: Optional[str], init_delay_seconds: float = 0.0, output_file: Optional[str] = None) -> bool:
-    """
-    Load script and wire to global message buffer with optional local file output.
-    
-    Args:
-        session: Frida session
-        initial_script: JavaScript code to load
-        init_delay_seconds: Delay after script loading
-        output_file: Optional LOCAL file path for saving output (NOT Android device path)
-    
-    Returns:
-        True if script loaded successfully, False otherwise
-    """
-    if not initial_script:
-        return False
-    wrapped_script = wrap_script_for_mcp(initial_script)
-    script = session.create_script(wrapped_script)
-    # Clear global buffer
-    try:
-        while len(messages_buffer) > 0:
-            messages_buffer.pop()
-    except Exception:
-        pass
-    handler, _ = create_message_collector(messages_buffer, output_file)
-    script.on('message', handler)
-    script.load()
-    # Keep reference so script isn't garbage-collected (which would unload it)
-    active_scripts.append(script)
-    if init_delay_seconds and init_delay_seconds > 0:
-        try:
-            await asyncio.sleep(init_delay_seconds)
-        except Exception:
-            pass
-    return True
 
 def _resolve_script_content(initial_script: Optional[str], script_file_path: Optional[str]) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
     """
@@ -241,15 +88,21 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     Internal helper to ensure device is connected.
     Returns True if successful, False otherwise.
     """
-    global device
+    global device, injector, device_manager
     
     if device:
         try:
             # Test if device is still connected
             device.id
-            return True
+            if injector and device_manager: # Ensure injector and device_manager are also set if device is connected
+                return True
         except:
             device = None
+            injector = None
+            device_manager = None
+    
+    # Determine OS and choose appropriate injector and device manager
+    current_os = platform.system()
     
     # Resolution order (minimal change):
     # 1) Explicit device_id param
@@ -260,27 +113,47 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     try:
         if device_id_to_use:
             device = frida.get_device(device_id_to_use)
+            if current_os == "Windows":
+                injector = WindowsInjector(device, messages_buffer, _frida_log)
+                device_manager = WindowsDeviceManager(CONFIG)
+            else: # Default to Android for other OS or if not Windows
+                injector = AndroidInjector(device, messages_buffer, _frida_log)
+                device_manager = AndroidDeviceManager(CONFIG)
             return True
     except Exception:
         pass
     try:
         device = frida.get_usb_device(timeout=5)
+        if current_os == "Windows":
+            injector = WindowsInjector(device, messages_buffer, _frida_log)
+            device_manager = WindowsDeviceManager(CONFIG)
+        else: # Default to Android for other OS or if not Windows
+            injector = AndroidInjector(device, messages_buffer, _frida_log)
+            device_manager = AndroidDeviceManager(CONFIG)
         return True
     except Exception:
         pass
     try:
         port = int(CONFIG.server_port or 27042)
-        # Ensure ADB port forwarding before attempting remote connect
-        try:
-            dm = AndroidDeviceManager(CONFIG)
-            dm.setup_port_forward()
-            time.sleep(0.5)
-        except Exception:
-            pass
+        # Ensure ADB port forwarding before attempting remote connect (Android specific)
+        if current_os != "Windows":
+            try:
+                dm = AndroidDeviceManager(CONFIG)
+                dm.setup_port_forward()
+                time.sleep(0.5)
+            except Exception:
+                pass
+        
         manager = frida.get_device_manager()
         device_remote = manager.add_remote_device(f"127.0.0.1:{port}")
         if device_remote:
             device = device_remote
+            if current_os == "Windows":
+                injector = WindowsInjector(device, messages_buffer, _frida_log)
+                device_manager = WindowsDeviceManager(CONFIG)
+            else: # Default to Android for other OS or if not Windows
+                injector = AndroidInjector(device, messages_buffer, _frida_log)
+                device_manager = AndroidDeviceManager(CONFIG)
             return True
     except Exception:
         pass
@@ -598,8 +471,14 @@ async def list_applications() -> Dict[str, Any]:
             "message": "Failed to connect to device. Ensure frida-server is running."
         }
     
+    if not device_manager:
+        return {
+            "status": "error",
+            "message": "Device manager not initialized. Device not connected?"
+        }
+
     try:
-        applications = device.enumerate_applications()
+        applications = device_manager.get_applications()
         app_list = []
         for app in applications:
             app_list.append({
@@ -642,16 +521,6 @@ async def attach(
     Returns:
       - {status, pid, target, name, script_loaded, message}
     """
-    global session
-    
-    # Clean up old session if exists
-    if session:
-        try:
-            session.detach()
-        except:
-            pass  # Session might already be disconnected
-        session = None
-    
     # Ensure device is connected
     if not await ensure_device_connected():
         return {
@@ -665,63 +534,15 @@ async def attach(
             "message": "Target cannot be empty"
         }
     
-    target = target.strip()
-    
-    try:
-        # Determine PID
-        if target.isdigit():
-            pid = int(target)
-            app_name = target
-        else:
-            # Find app by package name
-            applications = device.enumerate_applications()
-            target_app = None
-            
-            for app in applications:
-                if app.identifier == target and app.pid and app.pid > 0:
-                    target_app = app
-                    break
-            
-            if not target_app:
-                return {
-                    "status": "error",
-                    "message": f"Unable to find running app: {target}"
-                }
-            
-            pid = target_app.pid
-            app_name = target_app.name
+    # 解析脚本内容
+    script_content, error_response = _resolve_script_content(initial_script, script_file_path)
+    if error_response:
+        return error_response
         
-        # Attach to the process
-        session = device.attach(pid)
-        _bind_session_events(session)
-        
-        # 解析脚本内容
-        script_content, error_response = _resolve_script_content(initial_script, script_file_path)
-        if error_response:
-            return error_response
-        
-        # If script content available, inject it immediately
-        if script_content:
-            try:
-                await _load_script_with_global_buffer(session, script_content, output_file=output_file)
-            except Exception as e:
-                _frida_log(f"script load error: {e}")
-                return {"status": "error", "message": str(e)}
-        
-        result = {"status": "success",
-                  "pid": pid,
-                  "target": target,
-                  "name": app_name if not target.isdigit() else target,
-                  "script_loaded": script_content is not None,
-                  "message": "Attached successfully."}
-
-        return result
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+    if injector:
+        return await injector.attach(target, script_content, output_file)
+    else:
+        return {"status": "error", "message": "Injector not initialized. Device not connected?"}
 
 
 @mcp.tool()
@@ -743,16 +564,6 @@ async def spawn(
     Returns:
       - {status, pid, package, script_loaded, message}
     """
-    global session
-    
-    # Clean up old session if exists
-    if session:
-        try:
-            session.detach()
-        except:
-            pass  # Session might already be disconnected
-        session = None
-    
     # Ensure device is connected
     if not await ensure_device_connected():
         return {
@@ -760,43 +571,15 @@ async def spawn(
             "message": "Failed to connect to device. Ensure frida-server is running."
         }
     
-    try:
-        # Spawn the app in suspended state
-        pid = device.spawn(package_name)
-        session = device.attach(pid)
-        _bind_session_events(session)
+    # 解析脚本内容
+    script_content, error_response = _resolve_script_content(initial_script, script_file_path)
+    if error_response:
+        return error_response
         
-        # 解析脚本内容
-        script_content, error_response = _resolve_script_content(initial_script, script_file_path)
-        if error_response:
-            return error_response
-        
-        # If script content available, inject it before resuming
-        if script_content:
-            try:
-                await _load_script_with_global_buffer(session, script_content, init_delay_seconds=0.1, output_file=output_file)
-            except Exception as e:
-                _frida_log(f"script load error: {e}")
-                return {"status": "error", "message": str(e)}
-        
-        # Resume the app
-        device.resume(pid)
-        
-        # No post-resume wait; logs are collected asynchronously in global buffer
-        
-        result = {"status": "success",
-                  "pid": pid,
-                  "package": package_name,
-                  "script_loaded": script_content is not None,
-                  "message": "App spawned successfully."}
-
-        return result
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+    if injector:
+        return await injector.spawn(package_name, script_content, output_file)
+    else:
+        return {"status": "error", "message": "Injector not initialized. Device not connected?"}
 
 
 if __name__ == "__main__":
