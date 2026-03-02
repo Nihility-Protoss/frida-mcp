@@ -1,7 +1,7 @@
 {
-  "server_path": "/data/local/myfr",
-  "server_name": "aaabbb",
+  "server_path": "D:\\tools\\Frida",
+  "server_name": "frida-server-17.7.3.exe",
   "server_port": 27042,
-  "device_id": null,
+  "device_id": "local",
   "adb_path": "adb"
 }

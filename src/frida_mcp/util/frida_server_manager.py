@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from src.frida_mcp.config.default_config import FridaConfig
+from config.default_config import FridaConfig
 
 
 class FridaServerManager(ABC):

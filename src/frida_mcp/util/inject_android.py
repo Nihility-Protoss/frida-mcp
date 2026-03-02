@@ -1,6 +1,7 @@
 import frida
 from typing import Dict, Any, Optional
-from src.frida_mcp.util.inject import BaseInjector
+
+from .inject import BaseInjector
 
 class AndroidInjector(BaseInjector):
     """

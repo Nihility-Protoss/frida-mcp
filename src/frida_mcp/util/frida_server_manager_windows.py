@@ -1,8 +1,8 @@
 import subprocess
 import os
-from src.frida_mcp.config.default_config import FridaConfig
-from src.frida_mcp.util.device_manager import FridaServerManager
 
+from config.default_config import FridaConfig
+from .frida_server_manager import FridaServerManager
 
 class WindowsServerManager(FridaServerManager):
     """

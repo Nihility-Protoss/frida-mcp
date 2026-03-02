@@ -1,7 +1,8 @@
 import subprocess
 import time
-from src.frida_mcp.util.device_manager import FridaServerManager
-from src.frida_mcp.config.default_config import FridaConfig
+
+from config.default_config import FridaConfig
+from .frida_server_manager import FridaServerManager
 
 class AndroidServerManager(FridaServerManager):
     """

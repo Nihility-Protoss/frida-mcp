@@ -27,7 +27,7 @@ device: Optional[frida.core.Device] = None
 injector: Optional[BaseInjector] = None
 
 # Global MCP server settings
-MCP_HOST: str = "127.0.0.1"
+MCP_HOST: str = "0.0.0.0"
 MCP_PORT: int = 8032
 
 # Global message buffer (store raw log lines)
@@ -41,7 +41,7 @@ def _frida_log(text: str) -> None:
         pass
 
 # Initialize FastMCP
-mcp = FastMCP("frida-mcp")
+mcp = FastMCP(name="frida-mcp", host=MCP_HOST, port=MCP_PORT)
 
 
 CONFIG = load_config()
@@ -697,4 +697,16 @@ async def spawn(
 
 
 if __name__ == "__main__":
-    mcp.run(host=MCP_HOST, port=MCP_PORT)
+    # Ensure the server doesn't shut down immediately. 
+    # For transport="streamable-http", FastMCP should use the host/port from constructor.
+    print(f"[*] Frida MCP Server Starting...")
+    print(f"[*] Transport: streamable-http")
+    
+    try:
+        # Pass host and port directly to run() just in case the constructor ones aren't being picked up for streamable-http
+        mcp.run(transport="streamable-http")
+        # mcp.run()
+    except KeyboardInterrupt:
+        print("\n[*] Server stopped by user.")
+    except Exception as e:
+        print(f"[*] Server error: {e}")
