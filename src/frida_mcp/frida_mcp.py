@@ -23,7 +23,6 @@ from util.inject_windows import WindowsInjector
 # Global state management - simplified
 injector: Optional[BaseInjector] = None
 
-
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
 MCP_PORT: int = 8032
@@ -47,7 +46,7 @@ CONFIG = load_config()
 
 
 @mcp.tool()
-async def config_set(
+def config_set(
         server_path: Optional[str] = None,
         server_name: Optional[str] = None,
         server_port: Optional[int] = None,
@@ -105,7 +104,7 @@ async def config_set(
 
 
 @mcp.tool()
-async def config_save() -> Dict[str, Any]:
+def config_save() -> Dict[str, Any]:
     """
     将当前内存中的活跃配置保存到当前项目配置文件 (PROJECT_CONFIG_PATH) 中。
 
@@ -132,7 +131,7 @@ async def config_save() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def config_init(
+def config_init(
         new_project_config_path: Optional[str] = Field(default=None,
                                                        description="Optional custom absolute path for the project config file.")
 ) -> Dict[str, Any]:
@@ -240,7 +239,7 @@ def _get_device(device_id: Optional[str]) -> frida.core.Device:
     return frida.get_usb_device()
 
 
-async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
+def ensure_device_connected(device_id: Optional[str] = None) -> bool:
     global injector
     current_os = platform.system()
     if current_os == "Windows":
@@ -253,7 +252,7 @@ async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
 # Frida Server Start/Stop
 
 @mcp.tool()
-async def start_android_frida_server() -> Dict[str, Any]:
+def start_android_frida_server() -> Dict[str, Any]:
     """
     启动 Android 设备上的 frida-server。
 
@@ -278,7 +277,7 @@ async def start_android_frida_server() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def stop_android_frida_server() -> Dict[str, Any]:
+def stop_android_frida_server() -> Dict[str, Any]:
     """
     停止 Android 设备上的 frida-server。
 
@@ -297,7 +296,7 @@ async def stop_android_frida_server() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def check_android_frida_status() -> Dict[str, Any]:
+def check_android_frida_status() -> Dict[str, Any]:
     """
     检测 Android frida-server 是否在运行。
 
@@ -313,7 +312,7 @@ async def check_android_frida_status() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def start_windows_frida_server() -> Dict[str, Any]:
+def start_windows_frida_server() -> Dict[str, Any]:
     """
     启动 Windows 本地 frida-server。
 
@@ -338,7 +337,7 @@ async def start_windows_frida_server() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def stop_windows_frida_server() -> Dict[str, Any]:
+def stop_windows_frida_server() -> Dict[str, Any]:
     """
     停止 Windows 本地 frida-server。
 
@@ -357,7 +356,7 @@ async def stop_windows_frida_server() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def check_windows_frida_status() -> Dict[str, Any]:
+def check_windows_frida_status() -> Dict[str, Any]:
     """
     检测 Windows 本地 frida-server 是否在运行。
 
@@ -487,6 +486,79 @@ def get_local_device() -> Dict[str, Any]:
 
 
 @mcp.tool()
+def list_applications(
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+) -> Dict[str, Any]:
+    """
+    列出设备上的已安装应用（含运行与未运行）。
+
+    - 返回: {status, count, applications:[{identifier,name,pid?}]}
+    """
+    try:
+        _device = _get_device(device_id)
+        applications = _device.enumerate_applications()
+        app_list = []
+        for app in applications:
+            app_list.append({
+                "identifier": app.identifier,
+                "name": app.name,
+                "pid": app.pid if hasattr(app, 'pid') else None
+            })
+
+        # Sort by name for easier reading
+        app_list.sort(key=lambda x: x["name"].lower())
+
+        return {
+            "status": "success",
+            "count": len(app_list),
+            "applications": app_list
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+@mcp.tool()
+def get_frontmost_application(
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+) -> Dict[str, Any]:
+    """
+    获取当前前台应用信息。
+    Returns:
+        {status, application?{identifier,name,pid}, message?}
+    """
+
+    try:
+        frontmost = frida.get_device(device_id).get_frontmost_application()
+        if frontmost:
+            return {
+                "status": "success",
+                "application": {
+                    "identifier": frontmost.identifier,
+                    "name": frontmost.name,
+                    "pid": frontmost.pid
+                }
+            }
+        else:
+            return {
+                "status": "success",
+                "application": None,
+                "message": "No frontmost application found"
+            }
+    except frida.InvalidArgumentError:
+        raise ValueError(f"Device with ID {device_id} not found")
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+
+# Process Management
+
+@mcp.tool()
 def enumerate_processes(
         device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> List[Dict[str, Any]]:
@@ -522,39 +594,39 @@ def get_process_by_name(
 
 
 @mcp.tool()
-async def get_frontmost_application(
+def resume_process(
+        pid: int = Field(description="Process id to resume"),
         device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> Dict[str, Any]:
     """
-    获取当前前台应用信息。
-    Returns:
-        {status, application?{identifier,name,pid}, message?}
-    """
+    恢复被挂起的进程。
 
+    - 返回: {status, pid, message}
+    """
     try:
-        frontmost = frida.get_device(device_id).get_frontmost_application()
-        if frontmost:
-            return {
-                "status": "success",
-                "application": {
-                    "identifier": frontmost.identifier,
-                    "name": frontmost.name,
-                    "pid": frontmost.pid
-                }
-            }
-        else:
-            return {
-                "status": "success",
-                "application": None,
-                "message": "No frontmost application found"
-            }
-    except frida.InvalidArgumentError:
-        raise ValueError(f"Device with ID {device_id} not found")
+        _device = _get_device(device_id)
+        _device.resume(pid)
+        return {"status": "success", "pid": pid, "message": f"Process {pid} resumed"}
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
+
+
+@mcp.tool()
+def kill_process(
+        pid: int = Field(description="Process id to kill"),
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+) -> Dict[str, Any]:
+    """
+    终止正在运行的进程。
+
+    - 返回: {status, pid, message}
+    """
+    try:
+        _device = _get_device(device_id)
+        _device.kill(pid)
+        return {"status": "success", "pid": pid, "message": f"Process {pid} killed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 # Frida Resource
@@ -566,7 +638,7 @@ def get_version() -> str:
 
 
 @mcp.resource("frida://config")
-async def config_get() -> Dict[str, Any]:
+def config_get() -> Dict[str, Any]:
     """
     获取当前活跃的配置、全局和项目配置文件的路径及其状态。
     """
@@ -589,7 +661,7 @@ async def config_get() -> Dict[str, Any]:
 # Js Console Log
 
 @mcp.tool()
-async def get_messages(max_messages: int = 100) -> Dict[str, Any]:
+def get_messages(max_messages: int = 100) -> Dict[str, Any]:
     """
     获取全局 hook/log 文本缓冲（非消费模式）。
 
@@ -623,77 +695,6 @@ async def get_messages(max_messages: int = 100) -> Dict[str, Any]:
 # MCP Tool Handlers using FastMCP decorators
 
 @mcp.tool()
-async def list_applications(
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
-) -> Dict[str, Any]:
-    """
-    列出设备上的已安装应用（含运行与未运行）。
-
-    - 返回: {status, count, applications:[{identifier,name,pid?}]}
-    """
-    try:
-        _device = _get_device(device_id)
-        applications = _device.enumerate_applications()
-        app_list = []
-        for app in applications:
-            app_list.append({
-                "identifier": app.identifier,
-                "name": app.name,
-                "pid": app.pid if hasattr(app, 'pid') else None
-            })
-
-        # Sort by name for easier reading
-        app_list.sort(key=lambda x: x["name"].lower())
-
-        return {
-            "status": "success",
-            "count": len(app_list),
-            "applications": app_list
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
-
-
-@mcp.tool()
-async def resume_process(
-        pid: int = Field(description="Process id to resume"),
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
-) -> Dict[str, Any]:
-    """
-    恢复被挂起的进程。
-
-    - 返回: {status, pid, message}
-    """
-    try:
-        _device = _get_device(device_id)
-        _device.resume(pid)
-        return {"status": "success", "pid": pid, "message": f"Process {pid} resumed"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@mcp.tool()
-async def kill_process(
-        pid: int = Field(description="Process id to kill"),
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
-) -> Dict[str, Any]:
-    """
-    终止正在运行的进程。
-
-    - 返回: {status, pid, message}
-    """
-    try:
-        _device = _get_device(device_id)
-        _device.kill(pid)
-        return {"status": "success", "pid": pid, "message": f"Process {pid} killed"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@mcp.tool()
 async def attach(
         target: str,
         device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted"),
@@ -715,7 +716,7 @@ async def attach(
       - {status, pid, target, name, script_loaded, message}
     """
     # Ensure device is connected
-    if not await ensure_device_connected(device_id):
+    if not ensure_device_connected(device_id):
         return {
             "status": "error",
             "message": "Failed to connect to device. Ensure frida-server is running."
