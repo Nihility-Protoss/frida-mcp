@@ -29,7 +29,7 @@
 ### 4. 灵活的配置管理
 - **分层配置**: 支持全局配置 (`config.json`) 和项目特定配置 (`frida.mcp.config.json`)。
 - **运行时配置**: 提供一系列 `config_` 工具，可在不重启服务器的情况下即时修改配置、保存状态或初始化新项目。
-- **远程支持**: 当 MCP 启动地址设为 `0.0.0.0` 时，`config_init` 会自动优化配置文件存储逻辑。
+- **远程支持**: 当 MCP 启动地址设为 `0.0.0.0` 时，调用`config_init` 会自动优化配置文件存储逻辑。
 
 ## 快速开始
 
@@ -47,41 +47,50 @@ python src/frida_mcp/frida_mcp.py
 ## 可用工具 (MCP Tools)
 
 ### 配置管理
-- `config_get`: 获取当前活跃的配置、全局和项目配置文件的路径及其状态。
-- `config_set`: 更新内存中的配置，可选是否立即持久化到文件。
-- `config_init`: 初始化项目配置。支持自定义路径，并在 `0.0.0.0` 模式下自动处理。
-- `config_save`: 将当前内存中的活跃配置保存到当前项目配置文件中。
+- `config_get` (resource: `frida://config`): 获取当前活跃配置与全局/项目配置文件路径与存在性。
+- `config_set`: 更新内存配置（支持 `server_path`、`server_name`、`server_port`、`device_id`、`adb_path`、`os`）。`os` 仅允许 `Android` 或 `Windows`；可通过 `save_to=('global'|'project')` 立即持久化。
+- `config_init`: 初始化/切换项目配置文件路径，并写入当前活跃配置；`0.0.0.0` 模式下自动保存至全局目录。
+- `config_save`: 将当前活跃内存配置保存到当前项目配置文件。
 
 ### Frida Server 管理
-- `start_android_frida_server`: 启动 Android 设备上的 frida-server。
-- `stop_android_frida_server`:  停止 Android 设备上的 frida-server。
-- `check_android_frida_status`: 检测 Android frida-server 是否在运行。
-- `start_windows_frida_server`: 启动 Windows 本地 frida-server。
-- `stop_windows_frida_server`:  停止 Windows 本地 frida-server。
-- `check_windows_frida_status`: 检测 Windows 本地 frida-server 是否在运行。
+- `start_android_frida_server`: 启动 Android 设备上的 frida-server（需 `config.os=Android`）。
+- `stop_android_frida_server`: 停止 Android 设备上的 frida-server（需 `config.os=Android`）。
+- `check_android_frida_status`: 检测 Android frida-server 是否在运行（需 `config.os=Android`）。
+- `start_windows_frida_server`: 启动 Windows 本地 frida-server（需 `config.os=Windows`）。
+- `stop_windows_frida_server`: 停止 Windows 本地 frida-server（需 `config.os=Windows`）。
+- `check_windows_frida_status`: 检测 Windows 本地 frida-server 是否在运行（需 `config.os=Windows`）。
+- `check_frida_status`: 根据当前 `os` 自动检测对应平台的 frida-server 运行状态。
 
 ### 设备与应用工具
-- `enumerate_devices`: 列出系统连接的所有设备。
-- `get_device`: 根据 ID 获取特定设备信息。
-- `get_usb_device`: 获取连接的 USB 设备信息。
-- `get_local_device`: 获取本地设备信息。
-- `enumerate_processes`: 列出设备上运行的所有进程。
-- `get_process_by_name`: 根据名称在设备上查找进程。
-- `list_applications`: 列出设备上的已安装应用。
-- `get_frontmost_application`: 获取当前前台应用信息。
+- `enumerate_devices`: 列出所有连接的设备（ID/名称/类型）。
+- `get_device(device_id)`: 获取指定设备信息。
+- `get_usb_device`: 获取当前 USB 设备信息。
+- `get_local_device`: 获取本地设备信息（Windows）。
+- `list_applications(device_id?)`: 列出已安装应用，包含 `identifier/name/pid?`。
+- `get_frontmost_application(device_id)`: 获取当前前台应用信息。
 
-### 注入与日志
-- `attach`: 附加到运行中的进程，支持指定 PID 或包名，并可选注入 JS 脚本。
-- `spawn`: 拉起应用（挂起态）并附加，支持在恢复前注入脚本。
-- `resume_process`: 恢复被挂起的进程。
-- `kill_process`: 终止正在运行的进程。
-- `get_messages`: 获取全局 Hook/Log 文本缓冲，实时同步 `console.log` 输出。
+### 进程管理
+- `enumerate_processes(device_id?)`: 列出设备上运行的进程（未指定时：Windows 使用本地设备，其他使用 USB）。
+- `get_process_by_name(name, device_id?)`: 按名称模糊匹配进程（返回 `found`、`pid`、`name`）。
+- `resume_process(pid, device_id?)`: 恢复被挂起的进程。
+- `kill_process(pid, device_id?)`: 终止正在运行的进程。
+
+### 进程操作与注入
+- `attach(target, device_id?, initial_script?, script_file_path?, output_file?)`: 附加到运行中的进程（PID/包名），可注入 JS（字符串或绝对路径 .js），可保存日志到本地文件。
+- `spawn(package_name, device_id?, initial_script?, script_file_path?, output_file?)`: 拉起应用（挂起态）并注入，随后可由 `resume_process` 恢复。
+
+### 日志
+- `get_messages(max_messages=100)`: 获取全局 Hook/Log 文本缓冲快照。
+
+### 资源 (MCP Resources)
+- `frida://version`: 返回当前 Frida 版本字符串。
+- `frida://config`: 返回活跃配置与配置文件路径信息。
 
 ## 远程连接与 HTTP 协议
 当 `MCP_HOST` 设置为 `0.0.0.0` 时，服务器将监听所有网络接口。
 - **Transport**: 使用 `streamable-http` 传输协议。
-- **Client 配置**: 在客户端中，你需要配置远程服务器的 URL。例如在某些 MCP 客户端中，连接地址为 `http://<服务器IP>:8032/sse`。
-- **注意**: 使用 `config_init` 可以在远程模式下自动管理配置文件，确保配置的一致性。
+- **Client 配置**: 在客户端中，你需要配置远程服务器的 URL，例如 `http://<服务器IP>:8032/mcp`。
+- **注意**: 使用 `config_init` 可在远程模式下自动管理配置文件，确保一致性。
 
 ---
 *注：本项目仅用于技术研究与学习，请在遵循相关法律法规的前提下使用。*

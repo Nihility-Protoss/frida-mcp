@@ -47,41 +47,50 @@ By default, the server starts at `127.0.0.1:8032`.
 ## Available Tools (MCP Tools)
 
 ### Configuration Management
-- `config_get`: Retrieve active configuration, file paths, and server status.
-- `config_set`: Update memory configuration, with an optional immediate persistence to file.
-- `config_init`: Initialize project configuration. Supports custom paths and handles `0.0.0.0` mode automatically.
-- `config_save`: Persist the current active memory configuration to the project configuration file.
+- `config_get` (resource: `frida://config`): Get active configuration and paths/existence of global and project config files.
+- `config_set`: Update in-memory configuration (`server_path`, `server_name`, `server_port`, `device_id`, `adb_path`, `os`). `os` accepts only `Android` or `Windows`. Use `save_to=('global'|'project')` to persist immediately.
+- `config_init`: Initialize or switch the project config path and write the active config. In `0.0.0.0` mode, saves under the global directory automatically.
+- `config_save`: Persist the current active memory configuration to the current project config file.
 
 ### Frida Server Management
-- `start_android_frida_server`: Start frida-server on an Android device.
-- `stop_android_frida_server`:  Stop frida-server on an Android device.
-- `check_android_frida_status`: Check if frida-server is running on Android.
-- `start_windows_frida_server`: Start local frida-server on Windows.
-- `stop_windows_frida_server`:  Stop local frida-server on Windows.
-- `check_windows_frida_status`: Check if local frida-server is running on Windows.
+- `start_android_frida_server`: Start frida-server on Android (`config.os=Android` required).
+- `stop_android_frida_server`: Stop frida-server on Android (`config.os=Android` required).
+- `check_android_frida_status`: Check whether frida-server is running on Android (`config.os=Android` required).
+- `start_windows_frida_server`: Start local frida-server on Windows (`config.os=Windows` required).
+- `stop_windows_frida_server`: Stop local frida-server on Windows (`config.os=Windows` required).
+- `check_windows_frida_status`: Check whether local frida-server is running on Windows (`config.os=Windows` required).
+- `check_frida_status`: Auto-detect and check frida-server status based on current `os`.
 
 ### Device and Application Tools
-- `enumerate_devices`: List all devices connected to the system.
-- `get_device`: Get specific device information by ID.
-- `get_usb_device`: Get USB device information.
-- `get_local_device`: Get local device information.
-- `enumerate_processes`: List all processes running on a device.
-- `get_process_by_name`: Search for a process on a device by name.
-- `list_applications`: List installed applications on a device.
-- `get_frontmost_application`: Get info about the current frontmost application.
+- `enumerate_devices`: List all connected devices (id/name/type).
+- `get_device(device_id)`: Get a device by ID.
+- `get_usb_device`: Get the current USB device information.
+- `get_local_device`: Get the local device information (Windows).
+- `list_applications(device_id?)`: List installed applications, including `identifier/name/pid?`.
+- `get_frontmost_application(device_id)`: Get the current frontmost application.
 
-### Injection and Logging
-- `attach`: Attach to a running process by PID or package name, with an optional JS script injection.
-- `spawn`: Launch an application in suspended state and attach, with an optional script injection before resumption.
-- `resume_process`: Resume a suspended process.
-- `kill_process`: Terminate a running process.
-- `get_messages`: Retrieve the global Hook/Log text buffer, synchronized with `console.log` output.
+### Process Management
+- `enumerate_processes(device_id?)`: List processes on a device (if not specified: Windows uses local device, others use USB).
+- `get_process_by_name(name, device_id?)`: Fuzzy-match a process by name (`found`, `pid`, `name`).
+- `resume_process(pid, device_id?)`: Resume a suspended process.
+- `kill_process(pid, device_id?)`: Terminate a running process.
+
+### Process Operations & Injection
+- `attach(target, device_id?, initial_script?, script_file_path?, output_file?)`: Attach to a running process (PID/package). Inject JS either as string or absolute `.js` path and optionally save logs to a local file.
+- `spawn(package_name, device_id?, initial_script?, script_file_path?, output_file?)`: Launch an app in suspended state and inject, then use `resume_process` to continue.
+
+### Logging
+- `get_messages(max_messages=100)`: Get a snapshot of the global Hook/Log buffer.
+
+### Resources (MCP Resources)
+- `frida://version`: Return the current Frida version string.
+- `frida://config`: Return active configuration and config file path information.
 
 ## Remote Connection and HTTP Protocol
 When `MCP_HOST` is set to `0.0.0.0`, the server listens on all network interfaces.
 - **Transport**: Uses the `streamable-http` transport protocol.
-- **Client Configuration**: In your client settings, you need to configure the remote server URL. For some MCP clients, the connection endpoint is `http://<SERVER_IP>:8032/sse`.
-- **Note**: Using `config_init` automatically handles configuration file storage in remote mode, ensuring consistency across sessions.
+- **Client Configuration**: Configure the remote server URL, e.g., `http://<SERVER_IP>:8032/mcp`.
+- **Note**: `config_init` helps manage configuration files automatically in remote mode for consistency.
 
 ---
 *Note: This project is intended for research and educational purposes only. Please use it in compliance with relevant laws and regulations.*
