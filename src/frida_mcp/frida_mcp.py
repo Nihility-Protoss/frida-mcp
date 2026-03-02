@@ -2,20 +2,18 @@
 Frida MCP Server - Minimal Android Hook Service using FastMCP
 """
 
-import time
 import os
-import json # New import
-from typing import Optional, Dict, Any, Deque, List
+import platform
 from collections import deque
-from pydantic import Field
-import platform # New import
+from typing import Optional, Dict, Any, Deque, List
 
 import frida
 from mcp.server.fastmcp import FastMCP
+from pydantic import Field
 
 import config.default_config as cfg_module
-from config.default_config import load_config, GLOBAL_CONFIG_PATH, PROJECT_CONFIG_PATH, FridaConfig
-
+from config.default_config import load_config, GLOBAL_CONFIG_PATH
+from config.guard_config import guard_os
 from util.frida_server_manager_android import AndroidServerManager
 from util.frida_server_manager_windows import WindowsServerManager
 from util.inject import BaseInjector
@@ -23,9 +21,8 @@ from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 
 # Global state management - simplified
-device: Optional[frida.core.Device] = None
 injector: Optional[BaseInjector] = None
-from config.guard_config import guard_os
+
 
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
@@ -34,6 +31,7 @@ MCP_PORT: int = 8032
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)
 
+
 # Append client-side Frida logs to the global buffer
 def _frida_log(text: str) -> None:
     try:
@@ -41,21 +39,23 @@ def _frida_log(text: str) -> None:
     except Exception:
         pass
 
+
 # Initialize FastMCP
 mcp = FastMCP(name="frida-mcp", host=MCP_HOST, port=MCP_PORT)
 
-
 CONFIG = load_config()
+
 
 @mcp.tool()
 async def config_set(
-    server_path: Optional[str] = None,
-    server_name: Optional[str] = None,
-    server_port: Optional[int] = None,
-    device_id: Optional[str] = None,
-    adb_path: Optional[str] = None,
-    os: Optional[str] = Field(default=None, description="Target OS. Allowed: 'Android' or 'Windows'"),
-    save_to: Optional[str] = Field(default=None, description="Optional: 'global' or 'project' to persist changes immediately.")
+        server_path: Optional[str] = None,
+        server_name: Optional[str] = None,
+        server_port: Optional[int] = None,
+        device_id: Optional[str] = None,
+        adb_path: Optional[str] = None,
+        os: Optional[str] = Field(default=None, description="Target OS. Allowed: 'Android' or 'Windows'"),
+        save_to: Optional[str] = Field(default=None,
+                                       description="Optional: 'global' or 'project' to persist changes immediately.")
 ) -> Dict[str, Any]:
     """
     更新当前内存中的 Frida 配置。
@@ -72,7 +72,7 @@ async def config_set(
         {status, message, active_config?, persisted_to?}
     """
     global CONFIG
-    
+
     # Update memory
     if server_path is not None: CONFIG.server_path = server_path
     if server_name is not None: CONFIG.server_name = server_name
@@ -88,20 +88,21 @@ async def config_set(
                 "status": "error",
                 "message": "Invalid 'os'. Use 'Android' or 'Windows'. Example: config_set(os='Android')"
             }
-    
+
     # Optional persistence
     persisted_to = None
     if save_to:
         target_path = GLOBAL_CONFIG_PATH if save_to.lower() == 'global' else cfg_module.PROJECT_CONFIG_PATH
         CONFIG.save(target_path)
         persisted_to = target_path
-    
+
     return {
         "status": "success",
         "active_config": CONFIG.to_dict(),
         "persisted_to": persisted_to,
         "message": "Configuration updated in memory." + (f" Persisted to {persisted_to}." if persisted_to else "")
     }
+
 
 @mcp.tool()
 async def config_save() -> Dict[str, Any]:
@@ -113,7 +114,7 @@ async def config_save() -> Dict[str, Any]:
     """
     global CONFIG
     target_path = cfg_module.PROJECT_CONFIG_PATH
-    
+
     try:
         os.makedirs(os.path.dirname(target_path), exist_ok=True)
         CONFIG.save(target_path)
@@ -129,9 +130,11 @@ async def config_save() -> Dict[str, Any]:
             "message": f"Failed to save configuration: {str(e)}"
         }
 
+
 @mcp.tool()
 async def config_init(
-    new_project_config_path: Optional[str] = Field(default=None, description="Optional custom absolute path for the project config file.")
+        new_project_config_path: Optional[str] = Field(default=None,
+                                                       description="Optional custom absolute path for the project config file.")
 ) -> Dict[str, Any]:
     """
     初始化项目配置。建议在每个项目开始时运行一次。
@@ -146,7 +149,7 @@ async def config_init(
         {status, message, project_config_path?, current_active_config?}
     """
     global CONFIG
-    
+
     # 1. Determine target path
     if new_project_config_path:
         # Custom path provided by user
@@ -157,22 +160,22 @@ async def config_init(
     else:
         # Default local project path
         target_path = os.path.abspath(cfg_module.PROJECT_CONFIG_PATH)
-    
+
     try:
         # 2. Update the module's PROJECT_CONFIG_PATH variable to reflect current target
         cfg_module.PROJECT_CONFIG_PATH = target_path
-        
+
         # 3. Handle file existence and saving
         if not os.path.exists(target_path):
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             _frida_log(f"Initializing new config file at: {target_path}")
-        
+
         # Save current active CONFIG to the target path
         CONFIG.save(target_path)
-        
+
         # 4. Reload CONFIG to apply the change immediately
         CONFIG = load_config()
-        
+
         return {
             "status": "success",
             "message": "Project initialized successfully.",
@@ -185,7 +188,10 @@ async def config_init(
             "message": f"Failed to initialize project: {str(e)}"
         }
 
-def _resolve_script_content(initial_script: Optional[str], script_file_path: Optional[str]) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+
+def _resolve_script_content(
+        initial_script: Optional[str], script_file_path: Optional[str]
+) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
     """
     解析脚本内容，优先使用文件路径，fallback到代码字符串
     
@@ -206,7 +212,7 @@ def _resolve_script_content(initial_script: Optional[str], script_file_path: Opt
             }
         if not script_file_path.endswith('.js'):
             return None, {
-                "status": "error", 
+                "status": "error",
                 "message": "script_file_path must be a .js file"
             }
         try:
@@ -224,61 +230,25 @@ def _resolve_script_content(initial_script: Optional[str], script_file_path: Opt
     else:
         return None, None
 
-# Internal helper function for device connection
+
+def _get_device(device_id: Optional[str]) -> frida.core.Device:
+    did = device_id or getattr(CONFIG, "device_id", None)
+    if did:
+        return frida.get_device(did)
+    if getattr(CONFIG, "os", None) == "Windows":
+        return frida.get_local_device()
+    return frida.get_usb_device()
+
+
 async def ensure_device_connected(device_id: Optional[str] = None) -> bool:
-    """
-    Internal helper to ensure device is connected and managers are initialized.
-    """
-    global device, injector
-    
-    if device:
-        try:
-            if injector:
-                return True
-        except:
-            device = None
-            injector = None
-    
+    global injector
     current_os = platform.system()
-    
-    # Initialize Injector based on OS
     if current_os == "Windows":
         injector = WindowsInjector(messages_buffer, _frida_log)
     else:
         injector = AndroidInjector(messages_buffer, _frida_log)
+    return True
 
-    # Device acquisition logic
-    device_id_to_use = device_id or CONFIG.device_id
-    try:
-        if device_id_to_use:
-            device = frida.get_device(device_id_to_use)
-            return True
-    except: pass
-
-    try:
-        device = frida.get_usb_device(timeout=1)
-        return True
-    except: pass
-
-    try:
-        port = int(CONFIG.server_port or 27042)
-        # For Android, ensure ADB port forwarding before attempting remote connect
-        if current_os != "Windows":
-            try:
-                # Temporarily create an AndroidServerManager to setup port forwarding
-                temp_server_manager = AndroidServerManager(CONFIG)
-                temp_server_manager.setup_port_forward()
-                time.sleep(0.5)
-            except: pass
-        
-        manager = frida.get_device_manager()
-        device_remote = manager.add_remote_device(f"127.0.0.1:{port}")
-        if device_remote:
-            device = device_remote
-            return True
-    except: pass
-
-    return False
 
 # Frida Server Start/Stop
 
@@ -322,7 +292,8 @@ async def stop_android_frida_server() -> Dict[str, Any]:
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
     ok = dm.stop_frida_server()
-    return {"status": "success" if ok else "error", "message": "frida-server stopped" if ok else "failed to stop frida-server"}
+    return {"status": "success" if ok else "error",
+            "message": "frida-server stopped" if ok else "failed to stop frida-server"}
 
 
 @mcp.tool()
@@ -381,7 +352,8 @@ async def stop_windows_frida_server() -> Dict[str, Any]:
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
     ok = dm.stop_frida_server()
-    return {"status": "success" if ok else "error", "message": "frida-server stopped" if ok else "failed to stop frida-server"}
+    return {"status": "success" if ok else "error",
+            "message": "frida-server stopped" if ok else "failed to stop frida-server"}
 
 
 @mcp.tool()
@@ -399,6 +371,7 @@ async def check_windows_frida_status() -> Dict[str, Any]:
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
+
 @mcp.tool()
 def check_frida_status() -> Dict[str, Any]:
     """
@@ -414,6 +387,7 @@ def check_frida_status() -> Dict[str, Any]:
         return check_android_frida_status()
     else:
         return {"status": "error", "running": False}
+
 
 # Frida Tools Function
 
@@ -437,8 +411,11 @@ def enumerate_devices() -> List[Dict[str, Any]]:
         for _device in devices
     ]
 
+
 @mcp.tool()
-def get_device(device_id: str = Field(description="The ID of the device to get")) -> Dict[str, Any]:
+def get_device(
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+) -> Dict[str, Any]:
     """Get a device by its ID.
 
     Returns:
@@ -459,6 +436,7 @@ def get_device(device_id: str = Field(description="The ID of the device to get")
             "name": "",
             "type": "",
         }
+
 
 @mcp.tool()
 def get_usb_device() -> Dict[str, Any]:
@@ -483,6 +461,7 @@ def get_usb_device() -> Dict[str, Any]:
             "type": "",
         }
 
+
 @mcp.tool()
 def get_local_device() -> Dict[str, Any]:
     """Get the local device.
@@ -506,10 +485,10 @@ def get_local_device() -> Dict[str, Any]:
             "type": "",
         }
 
+
 @mcp.tool()
 def enumerate_processes(
-        device_id: Optional[str] = Field(default=None,
-                                         description="Optional ID of the device to enumerate processes from. Uses USB device if not specified.")
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> List[Dict[str, Any]]:
     """List all processes running on the system.
 
@@ -518,40 +497,34 @@ def enumerate_processes(
         - pid: Process ID
         - name: Process name
     """
-    if device_id:
-        _device = frida.get_device(device_id)
-    elif CONFIG.os == "Windows":
-        _device = frida.get_local_device()
-    else:
-        _device = frida.get_usb_device()
+    _device = _get_device(device_id)
 
     processes = _device.enumerate_processes()
     return [{"pid": _process.pid, "name": _process.name} for _process in processes]
 
+
 @mcp.tool()
 def get_process_by_name(
-        name: str = Field(description="The name (or part of the name) of the process to find. Case-insensitive."),
-        device_id: Optional[str] = Field(default=None,
-                                         description="Optional ID of the device to search the process on. Uses USB device if not specified.")) -> dict:
+        name: str = Field(description="Process name (substring, case-insensitive)"),
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+) -> Dict[str, Any]:
     """
     Find a process by name.
     Returns:
         {found, error?, pid?, name?}
     """
-    if device_id:
-        _device = frida.get_device(device_id)
-    elif CONFIG.os =="Windows":
-        _device = frida.get_local_device()
-    else:
-        _device = frida.get_usb_device()
+    _device = _get_device(device_id)
 
     for proc in _device.enumerate_processes():
         if name.lower() in proc.name.lower():
             return {"pid": proc.pid, "name": proc.name, "found": True}
     return {"found": False, "error": f"Process '{name}' not found"}
 
+
 @mcp.tool()
-async def get_frontmost_application(device_id: str = Field(description="The ID of the device to get")) -> Dict[str, Any]:
+async def get_frontmost_application(
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+) -> Dict[str, Any]:
     """
     获取当前前台应用信息。
     Returns:
@@ -583,6 +556,7 @@ async def get_frontmost_application(device_id: str = Field(description="The ID o
             "message": str(e)
         }
 
+
 # Frida Resource
 
 @mcp.resource("frida://version")
@@ -610,6 +584,7 @@ async def config_get() -> Dict[str, Any]:
             }
         }
     }
+
 
 # Js Console Log
 
@@ -649,7 +624,7 @@ async def get_messages(max_messages: int = 100) -> Dict[str, Any]:
 
 @mcp.tool()
 async def list_applications(
-    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to list applications from.")
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> Dict[str, Any]:
     """
     列出设备上的已安装应用（含运行与未运行）。
@@ -657,7 +632,7 @@ async def list_applications(
     - 返回: {status, count, applications:[{identifier,name,pid?}]}
     """
     try:
-        _device = frida.get_device(device_id) if device_id else device
+        _device = _get_device(device_id)
         applications = _device.enumerate_applications()
         app_list = []
         for app in applications:
@@ -666,10 +641,10 @@ async def list_applications(
                 "name": app.name,
                 "pid": app.pid if hasattr(app, 'pid') else None
             })
-        
+
         # Sort by name for easier reading
         app_list.sort(key=lambda x: x["name"].lower())
-        
+
         return {
             "status": "success",
             "count": len(app_list),
@@ -684,8 +659,8 @@ async def list_applications(
 
 @mcp.tool()
 async def resume_process(
-    pid: int = Field(description="The ID of the process to resume."), 
-    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to resume the process on.")
+        pid: int = Field(description="Process id to resume"),
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> Dict[str, Any]:
     """
     恢复被挂起的进程。
@@ -693,7 +668,7 @@ async def resume_process(
     - 返回: {status, pid, message}
     """
     try:
-        _device = frida.get_device(device_id) if device_id else device
+        _device = _get_device(device_id)
         _device.resume(pid)
         return {"status": "success", "pid": pid, "message": f"Process {pid} resumed"}
     except Exception as e:
@@ -702,8 +677,8 @@ async def resume_process(
 
 @mcp.tool()
 async def kill_process(
-    pid: int = Field(description="The ID of the process to kill."), 
-    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to kill the process on.")
+        pid: int = Field(description="Process id to kill"),
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> Dict[str, Any]:
     """
     终止正在运行的进程。
@@ -711,7 +686,7 @@ async def kill_process(
     - 返回: {status, pid, message}
     """
     try:
-        _device = frida.get_device(device_id) if device_id else device
+        _device = _get_device(device_id)
         _device.kill(pid)
         return {"status": "success", "pid": pid, "message": f"Process {pid} killed"}
     except Exception as e:
@@ -720,11 +695,11 @@ async def kill_process(
 
 @mcp.tool()
 async def attach(
-    target: str,
-    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to attach to."),
-    initial_script: Optional[str] = None,
-    script_file_path: Optional[str] = None,
-    output_file: Optional[str] = None
+        target: str,
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted"),
+        initial_script: Optional[str] = None,
+        script_file_path: Optional[str] = None,
+        output_file: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     附加到运行中的进程，并可选注入脚本。
@@ -745,18 +720,18 @@ async def attach(
             "status": "error",
             "message": "Failed to connect to device. Ensure frida-server is running."
         }
-    
+
     if not target or not target.strip():
         return {
             "status": "error",
             "message": "Target cannot be empty"
         }
-    
+
     # 解析脚本内容
     script_content, error_response = _resolve_script_content(initial_script, script_file_path)
     if error_response:
         return error_response
-        
+
     if injector:
         return await injector.attach(target, device_id, script_content, output_file)
     else:
@@ -765,11 +740,11 @@ async def attach(
 
 @mcp.tool()
 async def spawn(
-    package_name: str,
-    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to spawn on."),
-    initial_script: Optional[str] = None,
-    script_file_path: Optional[str] = None,
-    output_file: Optional[str] = None
+        package_name: str,
+        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted"),
+        initial_script: Optional[str] = None,
+        script_file_path: Optional[str] = None,
+        output_file: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     拉起应用（挂起态）并附加，可选在恢复前注入脚本。
@@ -790,12 +765,12 @@ async def spawn(
             "status": "error",
             "message": "Failed to connect to device. Ensure frida-server is running."
         }
-    
+
     # 解析脚本内容
     script_content, error_response = _resolve_script_content(initial_script, script_file_path)
     if error_response:
         return error_response
-        
+
     if injector:
         return await injector.spawn(package_name, device_id, script_content, output_file)
     else:
@@ -807,7 +782,7 @@ if __name__ == "__main__":
     # For transport="streamable-http", FastMCP should use the host/port from constructor.
     print(f"[*] Frida MCP Server Starting...")
     print(f"[*] Transport: streamable-http")
-    
+
     try:
         # Pass host and port directly to run() just in case the constructor ones aren't being picked up for streamable-http
         mcp.run(transport="streamable-http")
