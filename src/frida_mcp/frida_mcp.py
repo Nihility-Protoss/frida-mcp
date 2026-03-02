@@ -67,6 +67,9 @@ async def config_set(
       - device_id: 默认设备 ID
       - adb_path: adb 可执行文件路径
       - save_to: 可选，'global' 或 'project'，指定是否立即持久化到对应文件
+
+    Returns:
+        {status, message, active_config?, persisted_to?}
     """
     global CONFIG
     
@@ -101,29 +104,12 @@ async def config_set(
     }
 
 @mcp.tool()
-async def config_get() -> Dict[str, Any]:
-    """
-    获取当前活跃的配置、全局和项目配置文件的路径及其状态。
-    """
-    return {
-        "status": "success",
-        "active_config": CONFIG.to_dict(),
-        "paths": {
-            "global": {
-                "path": GLOBAL_CONFIG_PATH,
-                "exists": os.path.exists(GLOBAL_CONFIG_PATH)
-            },
-            "project": {
-                "path": cfg_module.PROJECT_CONFIG_PATH,
-                "exists": os.path.exists(cfg_module.PROJECT_CONFIG_PATH)
-            }
-        }
-    }
-
-@mcp.tool()
 async def config_save() -> Dict[str, Any]:
     """
     将当前内存中的活跃配置保存到当前项目配置文件 (PROJECT_CONFIG_PATH) 中。
+
+    Returns:
+        {status, message, path?, config?}
     """
     global CONFIG
     target_path = cfg_module.PROJECT_CONFIG_PATH
@@ -155,6 +141,9 @@ async def config_init(
     - 如果 MCP_HOST 为 0.0.0.0 (允许远程调用)，自动将配置文件覆盖写保存在全局配置目录的新文件 frida.mcp.config.json 中。
     - 支持通过 new_project_config_path 自定义配置文件路径，并将其设为当前活跃的 PROJECT_CONFIG_PATH。
     - 如果目标路径不存在，则自动复制当前配置到该位置。
+
+    Returns:
+        {status, message, project_config_path?, current_active_config?}
     """
     global CONFIG
     
@@ -299,7 +288,8 @@ async def start_android_frida_server() -> Dict[str, Any]:
     启动 Android 设备上的 frida-server。
 
     - 来源: 使用 config.json 的 server_path/server_name/server_port
-    - 返回: {status, message}
+    Returns:
+        {status, message}
     """
     err = guard_os("Android", CONFIG, "start_android_frida_server")
     if err:
@@ -322,7 +312,8 @@ async def stop_android_frida_server() -> Dict[str, Any]:
     """
     停止 Android 设备上的 frida-server。
 
-    - 返回: {status, message}
+    Returns:
+        {status, message}
     """
     err = guard_os("Android", CONFIG, "stop_android_frida_server")
     if err:
@@ -339,7 +330,8 @@ async def check_android_frida_status() -> Dict[str, Any]:
     """
     检测 Android frida-server 是否在运行。
 
-    - 返回: {status, running}
+    Returns:
+        {status, message}
     """
     err = guard_os("Android", CONFIG, "check_android_frida_status")
     if err:
@@ -355,7 +347,8 @@ async def start_windows_frida_server() -> Dict[str, Any]:
     启动 Windows 本地 frida-server。
 
     - 来源: 使用 config.json 的 server_path/server_name
-    - 返回: {status, message}
+    Returns:
+        {status, message}
     """
     err = guard_os("Windows", CONFIG, "start_windows_frida_server")
     if err:
@@ -378,7 +371,8 @@ async def stop_windows_frida_server() -> Dict[str, Any]:
     """
     停止 Windows 本地 frida-server。
 
-    - 返回: {status, message}
+    Returns:
+        {status, message}
     """
     err = guard_os("Windows", CONFIG, "stop_windows_frida_server")
     if err:
@@ -597,19 +591,25 @@ def get_version() -> str:
     return frida.__version__
 
 
-@mcp.resource("frida://usb_processes")
-def get_processes_resource() -> str:
-    """Get a list of all processes from the USB device as a readable string."""
-    _device = frida.get_usb_device()
-    processes = _device.enumerate_processes()
-    return "\n".join([f"PID: {p.pid}, Name: {p.name}" for p in processes])
-
-
-@mcp.resource("frida://devices")
-def get_devices_resource() -> str:
-    """Get a list of all devices as a readable string."""
-    devices = frida.enumerate_devices()
-    return "\n".join([f"ID: {d.id}, Name: {d.name}, Type: {d.type}" for d in devices])
+@mcp.resource("frida://config")
+async def config_get() -> Dict[str, Any]:
+    """
+    获取当前活跃的配置、全局和项目配置文件的路径及其状态。
+    """
+    return {
+        "status": "success",
+        "active_config": CONFIG.to_dict(),
+        "paths": {
+            "global": {
+                "path": GLOBAL_CONFIG_PATH,
+                "exists": os.path.exists(GLOBAL_CONFIG_PATH)
+            },
+            "project": {
+                "path": cfg_module.PROJECT_CONFIG_PATH,
+                "exists": os.path.exists(cfg_module.PROJECT_CONFIG_PATH)
+            }
+        }
+    }
 
 # Js Console Log
 
