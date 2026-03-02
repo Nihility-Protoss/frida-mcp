@@ -23,7 +23,7 @@ from util.inject_windows import WindowsInjector
 __version__ = "0.2.0"
 
 # Global state management - simplified
-injector: Optional[BaseInjector] = None
+injector: List[BaseInjector] = []
 
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
@@ -34,11 +34,8 @@ messages_buffer: Deque[str] = deque(maxlen=5000)
 
 
 # Append client-side Frida logs to the global buffer
-def _frida_log(text: str) -> None:
-    try:
-        messages_buffer.append(f"[frida] {text}")
-    except Exception:
-        pass
+def _frida_mcp_log(text: str) -> None:
+    messages_buffer.append(f"[frida-mcp] {text}")
 
 
 # Initialize FastMCP
@@ -169,7 +166,7 @@ def config_init(
         # 3. Handle file existence and saving
         if not os.path.exists(target_path):
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            _frida_log(f"Initializing new config file at: {target_path}")
+            _frida_mcp_log(f"Init new config file at: {target_path}")
 
         # Save current active CONFIG to the target path
         CONFIG.save(target_path)
@@ -195,11 +192,11 @@ def _resolve_script_content(
 ) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
     """
     解析脚本内容，优先使用文件路径，fallback到代码字符串
-    
+
     Args:
         initial_script: JS代码字符串
         script_file_path: JS文件绝对路径
-        
+
     Returns:
         tuple: (script_content, error_response)
         - 成功时返回 (script_content_string, None)
@@ -219,7 +216,7 @@ def _resolve_script_content(
         try:
             with open(script_file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            _frida_log(f"Loaded JS script from file: {script_file_path}")
+            _frida_mcp_log(f"Loaded JS script from file: {script_file_path}")
             return content, None
         except Exception as e:
             return None, {
@@ -239,16 +236,6 @@ def _get_device(device_id: Optional[str]) -> frida.core.Device:
     if getattr(CONFIG, "os", None) == "Windows":
         return frida.get_local_device()
     return frida.get_usb_device()
-
-
-def ensure_device_connected(device_id: Optional[str] = None) -> bool:
-    global injector
-    current_os = platform.system()
-    if current_os == "Windows":
-        injector = WindowsInjector(messages_buffer, _frida_log)
-    else:
-        injector = AndroidInjector(messages_buffer, _frida_log)
-    return True
 
 
 # Frida Server Start/Stop
@@ -533,7 +520,7 @@ def get_frontmost_application(
     """
 
     try:
-        frontmost = frida.get_device(device_id).get_frontmost_application()
+        frontmost = _get_device(device_id).get_frontmost_application()
         if frontmost:
             return {
                 "status": "success",
@@ -720,13 +707,6 @@ async def attach(
     Returns:
       - {status, pid, target, name, script_loaded, message}
     """
-    # Ensure device is connected
-    if not ensure_device_connected(device_id):
-        return {
-            "status": "error",
-            "message": "Failed to connect to device. Ensure frida-server is running."
-        }
-
     if not target or not target.strip():
         return {
             "status": "error",
@@ -765,12 +745,6 @@ async def spawn(
     Returns:
       - {status, pid, package, script_loaded, message}
     """
-    # Ensure device is connected
-    if not await ensure_device_connected(device_id):
-        return {
-            "status": "error",
-            "message": "Failed to connect to device. Ensure frida-server is running."
-        }
 
     # 解析脚本内容
     script_content, error_response = _resolve_script_content(initial_script, script_file_path)
