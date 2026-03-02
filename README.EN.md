@@ -71,9 +71,17 @@ By default, the server starts at `127.0.0.1:8032`.
 - `get_frontmost_application`: Get info about the current frontmost application.
 
 ### Injection and Logging
-- `attach`: Attach to a running process and optionally inject a script.
-- `spawn`: Spawn an application and inject a script.
-- `get_messages`: Retrieve global Hook/Log text buffer.
+- `attach`: Attach to a running process by PID or package name, with an optional JS script injection.
+- `spawn`: Launch an application in suspended state and attach, with an optional script injection before resumption.
+- `resume_process`: Resume a suspended process.
+- `kill_process`: Terminate a running process.
+- `get_messages`: Retrieve the global Hook/Log text buffer, synchronized with `console.log` output.
+
+## Remote Connection and HTTP Protocol
+When `MCP_HOST` is set to `0.0.0.0`, the server listens on all network interfaces.
+- **Transport**: Uses the `streamable-http` transport protocol.
+- **Client Configuration**: In your client settings, you need to configure the remote server URL. For some MCP clients, the connection endpoint is `http://<SERVER_IP>:8032/sse`.
+- **Note**: Using `config_init` automatically handles configuration file storage in remote mode, ensuring consistency across sessions.
 
 ---
 *Note: This project is intended for research and educational purposes only. Please use it in compliance with relevant laws and regulations.*

@@ -71,9 +71,17 @@ python src/frida_mcp/frida_mcp.py
 - `get_frontmost_application`: 获取当前前台应用信息。
 
 ### 注入与日志
-- `attach`: 附加到运行中的进程并可选注入脚本。
-- `spawn`: 拉起应用并注入脚本。
-- `get_messages`: 获取全局 Hook/Log 文本缓冲。
+- `attach`: 附加到运行中的进程，支持指定 PID 或包名，并可选注入 JS 脚本。
+- `spawn`: 拉起应用（挂起态）并附加，支持在恢复前注入脚本。
+- `resume_process`: 恢复被挂起的进程。
+- `kill_process`: 终止正在运行的进程。
+- `get_messages`: 获取全局 Hook/Log 文本缓冲，实时同步 `console.log` 输出。
+
+## 远程连接与 HTTP 协议
+当 `MCP_HOST` 设置为 `0.0.0.0` 时，服务器将监听所有网络接口。
+- **Transport**: 使用 `streamable-http` 传输协议。
+- **Client 配置**: 在客户端中，你需要配置远程服务器的 URL。例如在某些 MCP 客户端中，连接地址为 `http://<服务器IP>:8032/sse`。
+- **注意**: 使用 `config_init` 可以在远程模式下自动管理配置文件，确保配置的一致性。
 
 ---
 *注：本项目仅用于技术研究与学习，请在遵循相关法律法规的前提下使用。*

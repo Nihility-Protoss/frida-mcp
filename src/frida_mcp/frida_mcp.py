@@ -613,6 +613,42 @@ async def list_applications(
 
 
 @mcp.tool()
+async def resume_process(
+    pid: int = Field(description="The ID of the process to resume."), 
+    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to resume the process on.")
+) -> Dict[str, Any]:
+    """
+    恢复被挂起的进程。
+
+    - 返回: {status, pid, message}
+    """
+    try:
+        _device = frida.get_device(device_id) if device_id else device
+        _device.resume(pid)
+        return {"status": "success", "pid": pid, "message": f"Process {pid} resumed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@mcp.tool()
+async def kill_process(
+    pid: int = Field(description="The ID of the process to kill."), 
+    device_id: Optional[str] = Field(default=None, description="Optional ID of the device to kill the process on.")
+) -> Dict[str, Any]:
+    """
+    终止正在运行的进程。
+
+    - 返回: {status, pid, message}
+    """
+    try:
+        _device = frida.get_device(device_id) if device_id else device
+        _device.kill(pid)
+        return {"status": "success", "pid": pid, "message": f"Process {pid} killed"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@mcp.tool()
 async def attach(
     target: str,
     device_id: Optional[str] = Field(default=None, description="Optional ID of the device to attach to."),
