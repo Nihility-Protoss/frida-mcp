@@ -1,8 +1,46 @@
 from abc import ABC, abstractmethod
+from collections import deque
+
 import frida
 import asyncio
 import os
 from typing import Optional, Dict, Any, Deque, List
+
+class BaseInject(ABC):
+    def __init__(self, messages_buffer: Deque[str]):
+        self.messages_buffer: Deque[str] = messages_buffer
+        self.session: Optional[frida.core.Session] = None
+
+    def __str__(self):
+        return "Device-Pid-Name"
+
+    def _frida_log(self, text: str) -> None:
+        self.messages_buffer.append(f"[frida] {text}")
+
+    def get_buffer(self, size) -> List[str]:
+        return list(self.messages_buffer)[-size:]
+
+
+    @abstractmethod
+    async def attach(
+            self, target: str,
+            device_id: Optional[str] = None,
+            script_content: Optional[str] = None,
+            output_file: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Attach to a process and inject script."""
+        pass
+
+    @abstractmethod
+    async def spawn(
+            self, target: str,
+            device_id: Optional[str] = None,
+            script_content: Optional[str] = None,
+            output_file: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Spawn an app and inject script before resuming."""
+        pass
+
 
 class BaseInjector(ABC):
     """
