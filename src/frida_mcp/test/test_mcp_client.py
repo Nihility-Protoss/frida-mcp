@@ -12,7 +12,7 @@ except ImportError:
 
 # Default configuration for Frida MCP server in streamable-http mode
 # When transport="streamable-http", the endpoint is typically /sse
-DEFAULT_URL = "http://127.0.0.1:8032/mcp"
+DEFAULT_URL = "http://192.168.40.129:8032/mcp"
 
 async def test_frida_mcp_connection(url: str = DEFAULT_URL):
     """
@@ -29,8 +29,13 @@ async def test_frida_mcp_connection(url: str = DEFAULT_URL):
             tools = await client.list_tools()
             print(f"[+] Server reports {len(tools)} tools available.")
             
-            # 2. 调用核心工具进行基本功能验证
-            print("[*] Calling 'config_get' to verify tool execution...")
+            # 2. 调用核心资源/工具进行基本功能验证
+            print("[*] Reading 'frida://version' resource...")
+            # 使用 read_resource 直接读取资源，而不是调用 tool
+            version_resource = await client.read_resource("frida://version")
+            print(f"[+] Frida Version (via resource): {version_resource}")
+            
+            print("[*] Calling 'config_get' to verify active configuration...")
             result = await client.call_tool("config_get")
             
             # 解析并打印活跃配置
