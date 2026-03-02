@@ -20,6 +20,8 @@ from util.inject import BaseInjector
 from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 
+__version__ = "0.2.0"
+
 # Global state management - simplified
 injector: Optional[BaseInjector] = None
 
@@ -632,9 +634,12 @@ def kill_process(
 # Frida Resource
 
 @mcp.resource("frida://version")
-def get_version() -> str:
+def get_version() -> Dict[str, Any]:
     """Get the Frida version."""
-    return frida.__version__
+    return {
+        "frida": frida.__version__,
+        "frida_mcp": __version__,
+    }
 
 
 @mcp.resource("frida://config")
