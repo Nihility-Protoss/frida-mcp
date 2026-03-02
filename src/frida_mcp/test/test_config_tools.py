@@ -34,7 +34,7 @@ async def test_config_tools(url: str = DEFAULT_URL):
             # --- 2. Test config_set ---
             print("\n[2] Testing 'config_set'...")
             # 修改 device_id 进行测试
-            test_device_id = "test_device_123"
+            test_device_id = "local"
             set_result = await client.call_tool("config_set", arguments={"device_id": test_device_id})
             set_data = json.loads(set_result.content[0].text)
             print(f"    - Status: {set_data.get('status')}")

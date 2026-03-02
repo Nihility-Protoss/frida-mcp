@@ -25,6 +25,7 @@ from util.inject_windows import WindowsInjector
 # Global state management - simplified
 device: Optional[frida.core.Device] = None
 injector: Optional[BaseInjector] = None
+from config.guard_config import guard_os
 
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
@@ -53,6 +54,7 @@ async def config_set(
     server_port: Optional[int] = None,
     device_id: Optional[str] = None,
     adb_path: Optional[str] = None,
+    os: Optional[str] = Field(default=None, description="Target OS. Allowed: 'Android' or 'Windows'"),
     save_to: Optional[str] = Field(default=None, description="Optional: 'global' or 'project' to persist changes immediately.")
 ) -> Dict[str, Any]:
     """
@@ -74,6 +76,15 @@ async def config_set(
     if server_port is not None: CONFIG.server_port = server_port
     if device_id is not None: CONFIG.device_id = device_id
     if adb_path is not None: CONFIG.adb_path = adb_path
+    if os is not None:
+        val = (os or "").strip().lower()
+        if val in ("android", "windows"):
+            CONFIG.os = "Android" if val == "android" else "Windows"
+        else:
+            return {
+                "status": "error",
+                "message": "Invalid 'os'. Use 'Android' or 'Windows'. Example: config_set(os='Android')"
+            }
     
     # Optional persistence
     persisted_to = None
@@ -290,6 +301,9 @@ async def start_android_frida_server() -> Dict[str, Any]:
     - 来源: 使用 config.json 的 server_path/server_name/server_port
     - 返回: {status, message}
     """
+    err = guard_os("Android", CONFIG, "start_android_frida_server")
+    if err:
+        return err
     dm = AndroidServerManager(CONFIG)
     if dm.check_frida_status(silent=True):
         return {
@@ -310,6 +324,9 @@ async def stop_android_frida_server() -> Dict[str, Any]:
 
     - 返回: {status, message}
     """
+    err = guard_os("Android", CONFIG, "stop_android_frida_server")
+    if err:
+        return err
     dm = AndroidServerManager(CONFIG)
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
@@ -324,6 +341,9 @@ async def check_android_frida_status() -> Dict[str, Any]:
 
     - 返回: {status, running}
     """
+    err = guard_os("Android", CONFIG, "check_android_frida_status")
+    if err:
+        return err
     dm = AndroidServerManager(CONFIG)
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
@@ -337,6 +357,9 @@ async def start_windows_frida_server() -> Dict[str, Any]:
     - 来源: 使用 config.json 的 server_path/server_name
     - 返回: {status, message}
     """
+    err = guard_os("Windows", CONFIG, "start_windows_frida_server")
+    if err:
+        return err
     dm = WindowsServerManager(CONFIG)
     if dm.check_frida_status(silent=True):
         return {
@@ -357,6 +380,9 @@ async def stop_windows_frida_server() -> Dict[str, Any]:
 
     - 返回: {status, message}
     """
+    err = guard_os("Windows", CONFIG, "stop_windows_frida_server")
+    if err:
+        return err
     dm = WindowsServerManager(CONFIG)
     if not dm.check_frida_status(silent=True):
         return {"status": "success", "message": "frida-server already stopped"}
@@ -369,32 +395,33 @@ async def check_windows_frida_status() -> Dict[str, Any]:
     """
     检测 Windows 本地 frida-server 是否在运行。
 
-    - 返回: {status, running}
+    Returns:
+        {status, running}
     """
+    err = guard_os("Windows", CONFIG, "check_windows_frida_status")
+    if err:
+        return err
     dm = WindowsServerManager(CONFIG)
     running = bool(dm.check_frida_status(silent=True))
     return {"status": "success", "running": running}
 
-# Frida Tools Function
-
 @mcp.tool()
-def enumerate_processes(
-        device_id: Optional[str] = Field(default=None,
-                                         description="Optional ID of the device to enumerate processes from. Uses USB device if not specified.")
-) -> List[Dict[str, Any]]:
-    """List all processes running on the system.
+def check_frida_status() -> Dict[str, Any]:
+    """
+        检测 目标 os 的 frida-server 是否在运行。
 
     Returns:
-        A list of process information dictionaries containing:
-        - pid: Process ID
-        - name: Process name
+        {status, running}
     """
-    if device_id:
-        _device = frida.get_device(device_id)
+    current = getattr(CONFIG, "os", None)
+    if current == "Windows":
+        return check_windows_frida_status()
+    elif current == "Android":
+        return check_android_frida_status()
     else:
-        _device = frida.get_usb_device()
-    processes = _device.enumerate_processes()
-    return [{"pid": _process.pid, "name": _process.name} for _process in processes]
+        return {"status": "error", "running": False}
+
+# Frida Tools Function
 
 @mcp.tool()
 def enumerate_devices() -> List[Dict[str, Any]]:
@@ -416,71 +443,114 @@ def enumerate_devices() -> List[Dict[str, Any]]:
         for _device in devices
     ]
 
-
 @mcp.tool()
 def get_device(device_id: str = Field(description="The ID of the device to get")) -> Dict[str, Any]:
     """Get a device by its ID.
 
     Returns:
-        Information about the device
+        {status, id, name, type}
     """
     try:
         _device = frida.get_device(device_id)
         return {
+            "status": "success",
             "id": _device.id,
             "name": _device.name,
             "type": _device.type,
         }
     except frida.InvalidArgumentError:
-        raise ValueError(f"Device with ID {device_id} not found")
-
+        return {
+            "status": "error",
+            "id": "",
+            "name": "",
+            "type": "",
+        }
 
 @mcp.tool()
 def get_usb_device() -> Dict[str, Any]:
     """Get the USB device connected to the system.
 
     Returns:
-        Information about the USB device
+        {status, id, name, type}
     """
     try:
         _device = frida.get_usb_device()
         return {
+            "status": "success",
             "id": _device.id,
             "name": _device.name,
             "type": _device.type,
         }
     except frida.InvalidArgumentError:
-        raise ValueError("No USB device found")
-
+        return {
+            "status": "error",
+            "id": "",
+            "name": "",
+            "type": "",
+        }
 
 @mcp.tool()
 def get_local_device() -> Dict[str, Any]:
     """Get the local device.
 
     Returns:
-        Information about the local device
+        {status, id, name, type}
     """
     try:
         _device = frida.get_local_device()
         return {
+            "status": "success",
             "id": _device.id,
             "name": _device.name,
             "type": _device.type,
         }
-    except frida.InvalidArgumentError:  # Or other relevant Frida exceptions
-        raise ValueError("No local device found or error accessing it.")
+    except frida.InvalidArgumentError:
+        return {
+            "status": "error",
+            "id": "",
+            "name": "",
+            "type": "",
+        }
 
+@mcp.tool()
+def enumerate_processes(
+        device_id: Optional[str] = Field(default=None,
+                                         description="Optional ID of the device to enumerate processes from. Uses USB device if not specified.")
+) -> List[Dict[str, Any]]:
+    """List all processes running on the system.
+
+    Returns:
+        A list of process information dictionaries containing:
+        - pid: Process ID
+        - name: Process name
+    """
+    if device_id:
+        _device = frida.get_device(device_id)
+    elif CONFIG.os == "Windows":
+        _device = frida.get_local_device()
+    else:
+        _device = frida.get_usb_device()
+
+    processes = _device.enumerate_processes()
+    return [{"pid": _process.pid, "name": _process.name} for _process in processes]
 
 @mcp.tool()
 def get_process_by_name(
         name: str = Field(description="The name (or part of the name) of the process to find. Case-insensitive."),
         device_id: Optional[str] = Field(default=None,
                                          description="Optional ID of the device to search the process on. Uses USB device if not specified.")) -> dict:
-    """Find a process by name."""
+    """
+    Find a process by name.
+    Returns:
+        {found, error?, pid?, name?}
+    """
     if device_id:
         _device = frida.get_device(device_id)
+    elif CONFIG.os =="Windows":
+        _device = frida.get_local_device()
     else:
         _device = frida.get_usb_device()
+
     for proc in _device.enumerate_processes():
         if name.lower() in proc.name.lower():
             return {"pid": proc.pid, "name": proc.name, "found": True}
@@ -490,8 +560,8 @@ def get_process_by_name(
 async def get_frontmost_application(device_id: str = Field(description="The ID of the device to get")) -> Dict[str, Any]:
     """
     获取当前前台应用信息。
-
-    - 返回: {status, application?{identifier,name,pid}, message?}
+    Returns:
+        {status, application?{identifier,name,pid}, message?}
     """
 
     try:

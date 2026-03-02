@@ -5,6 +5,7 @@ from dataclasses import dataclass, asdict, field
 
 @dataclass
 class FridaConfig:
+    os: Optional[str] = None
     server_path: Optional[str] = None
     server_name: Optional[str] = None
     server_port: int = 27042

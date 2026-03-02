@@ -3,5 +3,6 @@
   "server_name": "frida-server-17.7.3.exe",
   "server_port": 27042,
   "device_id": "local",
-  "adb_path": "adb"
+  "adb_path": "adb",
+  "os": "Windows"
 }
