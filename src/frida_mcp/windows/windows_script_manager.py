@@ -1,0 +1,79 @@
+"""
+Windows平台专用脚本管理器
+"""
+
+import os
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+from ..scripts.scripts_manager import ScriptManager, JSFileLoader, StringReplacer, ScriptBuilder
+
+class WindowsJSFileLoader(JSFileLoader):
+    """Windows平台专用JS文件加载器"""
+    
+    def __init__(self, scripts_dir: Optional[str] = None):
+        """初始化Windows专用JS文件加载器"""
+        if scripts_dir:
+            super().__init__(scripts_dir)
+        else:
+            # 默认使用windows目录下的js子目录
+            super().__init__(str(Path(__file__).parent / "js"))
+
+class WindowsScriptManager(ScriptManager):
+    """Windows平台专用脚本管理器"""
+    
+    def __init__(self, scripts_dir: Optional[str] = None):
+        """初始化Windows专用脚本管理器"""
+        super().__init__(scripts_dir)
+        # 替换为Windows专用文件加载器
+        self.file_loader = WindowsJSFileLoader(scripts_dir)
+        self.builder = ScriptBuilder()
+        self.open_script = self.builder.build()
+    
+    def load_api_monitor(self, module_name: str, api_name: str) -> Dict[str, Any]:
+        """加载API监控脚本"""
+        return self.load_script_from_file(
+            "api_monitor.js",
+            module_name=module_name,
+            api_name=api_name
+        )
+    
+    def load_registry_monitor(self, registry_path: str) -> Dict[str, Any]:
+        """加载注册表监控脚本"""
+        return self.load_script_from_file(
+            "registry_monitor.js",
+            registry_path=registry_path
+        )
+    
+    def load_file_monitor(self, file_path: str) -> Dict[str, Any]:
+        """加载文件监控脚本"""
+        return self.load_script_from_file(
+            "file_monitor.js",
+            file_path=file_path
+        )
+    
+    def load_network_monitor(self, port: int) -> Dict[str, Any]:
+        """加载网络监控脚本"""
+        return self.load_script_from_file(
+            "network_monitor.js",
+            port=str(port)
+        )
+    
+    def load_process_injection(self, target_process: str, dll_path: str) -> Dict[str, Any]:
+        """加载进程注入脚本"""
+        return self.load_script_from_file(
+            "process_injection.js",
+            target_process=target_process,
+            dll_path=dll_path
+        )
+    
+    def load_antivirus_bypass(self) -> Dict[str, Any]:
+        """加载杀毒软件绕过脚本"""
+        return self.load_script_from_file("antivirus_bypass.js")
+    
+    def load_uac_bypass(self) -> Dict[str, Any]:
+        """加载UAC绕过脚本"""
+        return self.load_script_from_file("uac_bypass.js")
+    
+    def get_windows_specific_scripts(self) -> Dict[str, Any]:
+        """获取Windows平台专用脚本列表"""
+        return self.file_loader.get_available_scripts()
