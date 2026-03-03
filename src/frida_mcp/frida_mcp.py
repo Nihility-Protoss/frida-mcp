@@ -588,7 +588,7 @@ def resume_process(
         device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
 ) -> Dict[str, Any]:
     """
-    恢复被挂起的进程。
+    恢复被挂起的进程，暂未测试成功
     Returns:
         {status, pid, message}
     """

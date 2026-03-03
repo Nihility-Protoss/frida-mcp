@@ -19,12 +19,12 @@ def test_injector_structure():
     print("=== 测试注入器结构 ===")
     
     try:
-        from frida_mcp.util.inject import BaseInjector
-        from frida_mcp.util.inject_android import AndroidInjector
-        from frida_mcp.util.inject_windows import WindowsInjector
-        from frida_mcp.scripts.scripts_manager import ScriptManager
-        from frida_mcp.android.android_script_manager import AndroidScriptManager
-        from frida_mcp.windows.windows_script_manager import WindowsScriptManager
+        from util.inject import BaseInjector
+        from util.inject_android import AndroidInjector
+        from util.inject_windows import WindowsInjector
+        from scripts.scripts_manager import ScriptManager
+        from android.android_script_manager import AndroidScriptManager
+        from windows.windows_script_manager import WindowsScriptManager
         
         print("   ✅ 所有类导入成功")
         print(f"   - BaseInjector: {BaseInjector}")

@@ -3,10 +3,14 @@
 测试BaseInjector的inject_script功能
 """
 
-import asyncio
 import sys
 from pathlib import Path
-from collections import deque
+from util.inject import BaseInjector
+from util.inject_android import AndroidInjector
+from util.inject_windows import WindowsInjector
+from scripts.scripts_manager import ScriptManager
+from android.android_script_manager import AndroidScriptManager
+from windows.windows_script_manager import WindowsScriptManager
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -16,12 +20,7 @@ def test_inject_script_function():
     print("=== 测试inject_script功能 ===")
     
     try:
-        from frida_mcp.util.inject import BaseInjector
-        from frida_mcp.util.inject_android import AndroidInjector
-        from frida_mcp.util.inject_windows import WindowsInjector
-        from frida_mcp.scripts.scripts_manager import ScriptManager
-        from frida_mcp.android.android_script_manager import AndroidScriptManager
-        from frida_mcp.windows.windows_script_manager import WindowsScriptManager
+
         
         print("   ✅ 所有类导入成功")
         

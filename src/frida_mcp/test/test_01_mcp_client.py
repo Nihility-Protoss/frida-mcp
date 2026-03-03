@@ -1,3 +1,5 @@
+# Baseline Test @1
+
 import asyncio
 import json
 import sys
@@ -25,7 +27,7 @@ async def test_frida_mcp_connection(url: str = DEFAULT_URL):
         async with Client(url) as client:
             print("[+] Connection established successfully!")
             
-            # 1. 发现所有可用的工具 (验证 23 个工具是否都在)
+            # 1. 发现所有可用的工具 (验证工具是否都在)
             tools = await client.list_tools()
             print(f"[+] Server reports {len(tools)} tools available.")
             

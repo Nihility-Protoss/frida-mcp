@@ -7,6 +7,10 @@ import asyncio
 import sys
 from pathlib import Path
 from collections import deque
+from util.inject import BaseInjector
+from util.inject_android import AndroidInjector
+from util.inject_windows import WindowsInjector
+from scripts.scripts_manager import ScriptManager
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -16,10 +20,7 @@ def test_final_architecture():
     print("=== 测试最终修正的架构 ===")
     
     try:
-        from frida_mcp.util.inject import BaseInjector
-        from frida_mcp.util.inject_android import AndroidInjector
-        from frida_mcp.util.inject_windows import WindowsInjector
-        from frida_mcp.scripts.scripts_manager import ScriptManager
+
         
         print("   ✅ 所有类导入成功")
         

@@ -2,10 +2,11 @@
 Windows平台专用脚本管理器
 """
 
-import os
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-from ..scripts.scripts_manager import ScriptManager, JSFileLoader, StringReplacer, ScriptBuilder
+from typing import Optional, Dict, Any
+
+from scripts.scripts_manager import ScriptManager, JSFileLoader, ScriptBuilder
+
 
 class WindowsJSFileLoader(JSFileLoader):
     """Windows平台专用JS文件加载器"""
