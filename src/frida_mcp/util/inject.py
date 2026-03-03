@@ -61,11 +61,14 @@ class BaseInjector(ABC):
 
         Returns:
             dict: {'error': str, 'data': dict}
-                error: 错误信息，成功时为None
+                error: 错误信息，成功时为 None
                 data: 会话信息
         """
         if not self.session:
-            return {'error': 'No active session', 'data': None}
+            return {
+                'error': "No active session. Please re call attach or spawn.",
+                'data': None
+            }
 
         try:
             return {

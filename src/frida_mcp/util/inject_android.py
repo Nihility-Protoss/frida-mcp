@@ -40,22 +40,21 @@ class AndroidInjector(BaseInjector):
             if target.isdigit():
                 pid = int(target)
                 package_name = target
-                app_name = target
             else:
                 applications = device.enumerate_applications()
                 target_app = None
-                
+
                 for app in applications:
                     if app.identifier == target and app.pid and app.pid > 0:
                         target_app = app
+
                         break
                 
                 if not target_app:
                     return {'error': f'Unable to find running app: {target}', 'data': None}
                 
                 pid = target_app.pid
-                package_name = app.identifier
-                app_name = target_app.name
+                package_name = target_app.name
             
             # 附加到进程
             self.session = device.attach(pid)
@@ -69,7 +68,6 @@ class AndroidInjector(BaseInjector):
                 'data': {
                     'pid': pid,
                     'package': package_name,
-                    'name': app_name,
                     'message': 'Successfully attached to Android process'
                 }
             }

@@ -6,6 +6,7 @@ import os
 import platform
 from collections import deque
 from typing import Optional, Dict, Any, Deque, List
+from typing import Annotated
 
 import frida
 from mcp.server.fastmcp import FastMCP
@@ -17,21 +18,20 @@ from config.guard_config import guard_os
 from util.frida_server_manager_android import AndroidServerManager
 from util.frida_server_manager_windows import WindowsServerManager
 from util.inject import BaseInjector
+from scripts.scripts_manager import ScriptManager
 from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 
 __version__ = "0.2.0"
 
-# Global state management - simplified
-injector: List[BaseInjector] = []
-
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
 MCP_PORT: int = 8032
 
+# Global state management - simplified
+injector: Optional[BaseInjector] = None
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)
-
 
 # Append client-side Frida logs to the global buffer
 def _frida_mcp_log(text: str) -> None:
@@ -589,8 +589,8 @@ def resume_process(
 ) -> Dict[str, Any]:
     """
     恢复被挂起的进程。
-
-    - 返回: {status, pid, message}
+    Returns:
+        {status, pid, message}
     """
     try:
         _device = _get_device(device_id)
@@ -607,8 +607,8 @@ def kill_process(
 ) -> Dict[str, Any]:
     """
     终止正在运行的进程。
-
-    - 返回: {status, pid, message}
+    Returns:
+        {status, pid, message}
     """
     try:
         _device = _get_device(device_id)
@@ -686,26 +686,45 @@ def get_messages(max_messages: int = 100) -> Dict[str, Any]:
 
 # MCP Tool Handlers using FastMCP decorators
 
+def injector_init() -> Dict[str, Any]:
+    global injector
+    if injector is None:
+        # 手动构建 injector 结构体
+        if CONFIG.device_id is None:
+            return {
+                "status": "error",
+                "message": "Device Id not Set. Please call config_set first."
+            }
+
+        if getattr(CONFIG, "os", None) == "Android":
+            injector = AndroidInjector(device=_get_device(CONFIG.device_id), messages_buffer=messages_buffer)
+        elif getattr(CONFIG, "os", None) == "Windows":
+            injector = WindowsInjector(device=_get_device(CONFIG.device_id), messages_buffer=messages_buffer)
+        else:
+            return {
+                "status": "error",
+                "message": f"OS {getattr(CONFIG, "os", None)} is not supported."
+            }
+        return {
+            "status": "success",
+            "message": "injector init success"
+        }
+    else:
+        return {
+            "status": "success",
+            "message": "injector init before."
+        }
+
 @mcp.tool()
-async def attach(
-        target: str,
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted"),
-        initial_script: Optional[str] = None,
-        script_file_path: Optional[str] = None,
-        output_file: Optional[str] = None
-) -> Dict[str, Any]:
+async def attach(target: str) -> Dict[str, Any]:
     """
-    附加到运行中的进程，并可选注入脚本。
+    附加到运行中的进程，建立session连接。
 
     Args:
       - target: PID 字符串或包名
-      - device_id: 可选的设备 ID
-      - initial_script: 可选注入的 Frida JS 代码字符串
-      - script_file_path: 可选注入的 JS 文件绝对路径（优先于 initial_script）
-      - output_file: 可选的本地电脑文件路径，用于保存 hook 输出（非安卓设备路径）
 
     Returns:
-      - {status, pid, target, name, script_loaded, message}
+      - {status, pid, target, name, message}
     """
     if not target or not target.strip():
         return {
@@ -713,48 +732,178 @@ async def attach(
             "message": "Target cannot be empty"
         }
 
-    # 解析脚本内容
-    script_content, error_response = _resolve_script_content(initial_script, script_file_path)
-    if error_response:
-        return error_response
+    injector_init()
 
-    if injector:
-        return await injector.attach(target, device_id, script_content, output_file)
-    else:
-        return {"status": "error", "message": "Injector not initialized. Device not connected?"}
+    # 使用新的injector架构，device已在初始化时传入
+    attach_result = await injector.attach(target.strip())
+    if attach_result['error']:
+        return {
+            "status": "error",
+            "message": attach_result['error']
+        }
+
+    return {
+        "status": "success",
+        "pid": attach_result['data']['pid'],
+        "target": target.strip(),
+        "name": attach_result['data'].get('name', target.strip()),
+        "message": f"Successfully attached to {target.strip()}"
+    }
 
 
 @mcp.tool()
-async def spawn(
-        package_name: str,
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted"),
-        initial_script: Optional[str] = None,
-        script_file_path: Optional[str] = None,
-        output_file: Optional[str] = None
-) -> Dict[str, Any]:
+async def spawn(package_name: str) -> Dict[str, Any]:
     """
-    拉起应用（挂起态）并附加，可选在恢复前注入脚本。
+    拉起应用（挂起态）并附加，建立session连接。
 
     Args:
-      - package_name: 应用包名
-      - device_id: 可选的设备 ID
-      - initial_script: 可选注入的 Frida JS 代码字符串
-      - script_file_path: 可选注入的 JS 文件绝对路径（优先于 initial_script）
-      - output_file: 可选的本地电脑文件路径，用于保存 hook 输出（非安卓设备路径）
+      - package_name: 应用包名 / 应用程序地址
 
     Returns:
-      - {status, pid, package, script_loaded, message}
+      - {status, pid, package, message}
     """
+    if not package_name or not package_name.strip():
+        return {
+            "status": "error",
+            "message": "Package name cannot be empty"
+        }
+
+    injector_init()
+
+    spawn_result = await injector.spawn(package_name.strip())
+    if spawn_result['error']:
+        return {
+            "status": "error",
+            "message": spawn_result['error']
+        }
+
+    return {
+        "status": "success",
+        "pid": spawn_result['data']['pid'],
+        "package": package_name.strip(),
+        "message": f"Successfully spawned {package_name.strip()}"
+    }
+
+@mcp.tool()
+async def inject_script(
+        script_content: Optional[str] = None,
+        script_file_path: Optional[str] = None,
+        script_name: str = "custom_script"
+) -> Dict[str, Any]:
+    """
+    将JavaScript脚本注入到当前活跃的session中。
+
+    Args:
+      - script_content: 要注入的Frida JS代码字符串
+      - script_file_path: 要注入的JS文件绝对路径（优先于script_content）
+      - script_name: 脚本名称标识符，默认为"custom_script"
+
+    Returns:
+      - {status, script_name, script_content_length, message}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+    
+    if not injector.is_connected():
+        return {
+            "status": "error",
+            "message": "No active session. Please re call attach or spawn."
+        }
 
     # 解析脚本内容
-    script_content, error_response = _resolve_script_content(initial_script, script_file_path)
+    script_content_resolved, error_response = _resolve_script_content(script_content, script_file_path)
     if error_response:
         return error_response
 
-    if injector:
-        return await injector.spawn(package_name, device_id, script_content, output_file)
-    else:
-        return {"status": "error", "message": "Injector not initialized. Device not connected?"}
+    if not script_content_resolved:
+        return {
+            "status": "error",
+            "message": "No script content provided"
+        }
+
+    try:
+        script_manager = ScriptManager()
+        script_manager.open_script = script_content_resolved
+        
+        inject_result = injector.inject_script(script_manager, script_name)
+        
+        if inject_result['error']:
+            return {
+                "status": "error",
+                "message": f"Failed to inject script: {inject_result['error']}"
+            }
+        
+        return {
+            "status": "success",
+            "script_name": script_name,
+            "script_content_length": len(script_content_resolved),
+            "message": f"Successfully injected script '{script_name}'"
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error injecting script: {str(e)}"
+        }
+
+
+@mcp.tool()
+async def detach() -> Dict[str, Any]:
+    """
+    断开当前活跃的session连接。
+
+    Returns:
+      - {status, message}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+    
+    detach_result = injector.detach()
+    if detach_result['error']:
+        return {
+            "status": "error",
+            "message": detach_result['error']
+        }
+    
+    return {
+        "status": "success",
+        "message": "Successfully detached from target"
+    }
+
+
+@mcp.tool()
+async def get_session_info() -> Dict[str, Any]:
+    """
+    获取当前活跃的session信息。
+
+    Returns:
+      - {status, target, pid, message}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+    
+    session_info = injector.get_session_info()
+    if session_info['error']:
+        return {
+            "status": "error",
+            "message": session_info['error']
+        }
+    
+    return {
+        "status": "success",
+        "target": session_info['data']['target'],
+        "pid": session_info['data']['pid'],
+        "message": f"Active session: {session_info['data']['target']} (PID: {session_info['data']['pid']})"
+    }
 
 
 if __name__ == "__main__":
