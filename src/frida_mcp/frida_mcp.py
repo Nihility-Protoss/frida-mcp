@@ -650,7 +650,7 @@ def config_get() -> Dict[str, Any]:
     }
 
 
-# Js Console Log
+# Console Log
 
 @mcp.tool()
 def get_messages(max_messages: int = 100) -> Dict[str, Any]:

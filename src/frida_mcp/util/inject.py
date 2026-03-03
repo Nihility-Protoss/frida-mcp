@@ -1,196 +1,177 @@
-from abc import ABC, abstractmethod
-from collections import deque
+"""
+修正的BaseInjector类，符合指定的抽象方法签名
+"""
 
 import frida
-import asyncio
-import os
-from typing import Optional, Dict, Any, Deque, List
-
-class BaseInject(ABC):
-    def __init__(self, messages_buffer: Deque[str]):
-        self.messages_buffer: Deque[str] = messages_buffer
-        self.session: Optional[frida.core.Session] = None
-
-    def __str__(self):
-        return "Device-Pid-Name"
-
-    def _frida_log(self, text: str) -> None:
-        self.messages_buffer.append(f"[frida] {text}")
-
-    def get_buffer(self, size) -> List[str]:
-        return list(self.messages_buffer)[-size:]
-
-
-    @abstractmethod
-    async def attach(
-            self, target: str,
-            device_id: Optional[str] = None,
-            script_content: Optional[str] = None,
-            output_file: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Attach to a process and inject script."""
-        pass
-
-    @abstractmethod
-    async def spawn(
-            self, target: str,
-            device_id: Optional[str] = None,
-            script_content: Optional[str] = None,
-            output_file: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Spawn an app and inject script before resuming."""
-        pass
-
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional
+from collections import deque
 
 class BaseInjector(ABC):
     """
-    Abstract base class for handling Frida injection.
-    Provides common functionalities like script wrapping, message collection,
-    and script loading.
+    修正的BaseInjector类，符合指定的抽象方法签名
+    device信息在初始化时传入，messages_buffer必须传入
     """
-    def __init__(self, messages_buffer: Deque[str], frida_log_callback):
-        self.messages_buffer = messages_buffer
-        self.frida_log = frida_log_callback
-        self.active_scripts: List[frida.core.Script] = []
-        self.session: Optional[frida.core.Session] = None
-
-    def _log(self, text: str) -> None:
-        if self.frida_log:
-            self.frida_log(text)
-
-    def _get_device(self, device_id: Optional[str] = None) -> frida.core.Device:
-        """Helper to get Frida device by ID or default to USB/Local."""
-        if device_id:
-            return frida.get_device(device_id)
-        
-        # Default behavior: try USB first, then local
-        try:
-            return frida.get_usb_device(timeout=1)
-        except:
-            return frida.get_local_device()
-
-    def _bind_session_events(self, sess: frida.core.Session) -> None:
-        """Bind session events to capture detach reasons."""
-        try:
-            def on_detached(reason):
-                self._log(f"session detached: {reason}")
-            sess.on('detached', on_detached)
-        except Exception as e:
-            self._log(f"bind detached failed: {e}")
-
-    @staticmethod
-    def wrap_script(user_script: str) -> str:
-        """Wrap user script with logging and helper functions."""
-        return f"""
-        // Smart object to string function (prefers Gson)
-        function safeStringify(obj) {{
-            if (obj === null) return 'null';
-            if (obj === undefined) return 'undefined';
-            
-            // Basic types
-            if (typeof obj === 'string') return obj;
-            if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
-            
-            // Objects
-            try {{
-                var Gson = Java.use('com.google.gson.Gson');
-                var gson = Gson.$new();
-                return gson.toJson(obj);
-            }} catch (gsonError) {{
-                try {{
-                    return obj.toString();
-                }} catch (toStringError) {{
-                    try {{
-                        return '[' + (obj.$className || 'Unknown') + ' Object]';
-                    }} catch (classError) {{
-                        return '[Unparseable Object]';
-                    }}
-                }}
-            }}
-        }}
-        
-        // Redirect console.log to send()
-        console.log = function() {{
-            var message = Array.prototype.slice.call(arguments).map(function(arg) {{
-                return safeStringify(arg);
-            }}).join(' ');
-            send({{'type': 'log', 'message': message}});
-        }};
-        
-        // User script
-        {user_script}
+    
+    def __init__(self, device: frida.core.Device, messages_buffer: deque):
         """
-
-    def _create_message_collector(self, output_file: Optional[str] = None):
-        """Creates a message handler that collects Frida script output."""
-        messages = []
+        初始化注入器
         
-        if output_file and os.path.exists(output_file):
-            try:
-                open(output_file, 'w', encoding='utf-8').close()
-            except Exception:
-                pass
-
+        Args:
+            device: Frida设备实例（必须传入）
+            messages_buffer: 消息缓冲区（必须传入）
+        """
+        self.device = device
+        self.messages_buffer = messages_buffer
+        self.session: Optional[frida.core.Session] = None
+        self.current_target: Optional[str] = None
+        self.current_pid: Optional[int] = None
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}-{self.current_target}-{self.current_pid}"
+    
+    def _log(self, text: str) -> None:
+        """记录日志消息"""
+        message = f"[{self.__class__.__name__}] {text}"
+        self.messages_buffer.append(message)
+        print(message)
+    
+    def _bind_session_events(self, session: frida.core.Session) -> None:
+        """绑定session事件"""
+        def on_detached(reason):
+            self._log(f"Session detached: {reason}")
+            self.session = None
+        
         def on_message(message, data):
-            if message.get('type') == 'send':
-                payload = message.get('payload', {})
-                if isinstance(payload, dict) and payload.get('type') == 'log':
-                    text = payload.get('message', str(payload))
-                else:
-                    text = str(payload)
-            elif message.get('type') == 'error':
-                text = f"[Error] {message.get('stack', message.get('description', str(message)))}"
-            else:
-                if 'payload' in message:
-                    text = str(message['payload'])
-                else:
-                    text = str(message)
-
-            messages.append(text)
-            if self.messages_buffer is not None:
-                self.messages_buffer.append(text)
-
-            if output_file:
-                try:
-                    with open(output_file, 'a', encoding='utf-8') as f:
-                        f.write(f"{text}\n")
-                except Exception:
-                    pass
-
-        return on_message, messages
-
-    async def _load_script(self, session: frida.core.Session, script_content: str, init_delay: float = 0.0, output_file: Optional[str] = None) -> bool:
-        """Load script and wire message collector."""
-        if not script_content:
-            return False
+            if message['type'] == 'send':
+                self._log(f"Script message: {message['payload']}")
+            elif message['type'] == 'error':
+                self._log(f"Script error: {message['description']}")
         
-        wrapped_script = BaseInjector.wrap_script(script_content)
-        script = session.create_script(wrapped_script)
-        
-        # Clear buffer
+        session.on('detached', on_detached)
+        session.on('message', on_message)
+    
+    def is_connected(self) -> bool:
+        """检查是否已连接"""
+        return self.session is not None
+    
+    def get_session_info(self) -> Dict[str, Any]:
+        """
+        获取当前会话信息
+
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 会话信息
+        """
+        if not self.session:
+            return {'error': 'No active session', 'data': None}
+
         try:
-            while len(self.messages_buffer) > 0:
-                self.messages_buffer.pop()
-        except Exception:
-            pass
+            return {
+                'error': None,
+                'data': {
+                    'target': self.current_target,
+                    'pid': self.current_pid
+                }
+            }
+        except Exception as e:
+            return {'error': str(e), 'data': None}
+
+    def inject_script(self, script_manager, script_name: str = "default") -> Dict[str, Any]:
+        """
+        使用ScriptManager将脚本注入到当前session
+
+        Args:
+            script_manager: ScriptManager实例
+            script_name: 脚本名称标识符
+
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 注入结果信息
+        """
+        if not self.session:
+            return {'error': 'No active session. Please attach or spawn first.', 'data': None}
+
+        try:
+            # 获取当前脚本内容
+            script_content = script_manager.open_script
+            if not script_content:
+                return {'error': 'No script content available', 'data': None}
+
+            # 创建并加载脚本
+            script = self.session.create_script(script_content)
+            script.on('message', lambda message, data: self._handle_script_message(script_name, message, data))
+            script.load()
+
+            return {
+                'error': None,
+                'data': {
+                    'script_name': script_name,
+                    'script_content_length': len(script_content)
+                }
+            }
+
+        except Exception as e:
+            return {'error': str(e), 'data': None}
+
+    def _handle_script_message(self, script_name: str, message: Dict[str, Any], data: bytes) -> None:
+        """处理脚本消息"""
+        if message['type'] == 'send':
+            self._log(f"[{script_name}] {message['payload']}")
+        elif message['type'] == 'error':
+            self._log(f"[{script_name}] ERROR: {message['description']}")
+    
+    @abstractmethod
+    async def attach(self, target: str) -> Dict[str, Any]:
+        """
+        附加到进程
+        
+        Args:
+            target: 目标进程（PID或名称）
             
-        handler, _ = self._create_message_collector(output_file)
-        script.on('message', handler)
-        script.load()
-        
-        # Keep reference
-        self.active_scripts.append(script)
-        
-        if init_delay > 0:
-            await asyncio.sleep(init_delay)
-        return True
-
-    @abstractmethod
-    async def attach(self, target: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
-        """Attach to a process and inject script."""
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 附加结果信息
+        """
         pass
-
+    
     @abstractmethod
-    async def spawn(self, package_name: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
-        """Spawn an app and inject script before resuming."""
+    async def spawn(self, target: str) -> Dict[str, Any]:
+        """
+        启动进程
+        
+        Args:
+            target: 目标进程（包名或程序名）
+            
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 启动结果信息
+        """
         pass
+    
+    def detach(self) -> Dict[str, Any]:
+        """
+        断开连接
+        
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 断开结果信息
+        """
+        try:
+            if self.session:
+                self.session.detach()
+                self.session = None
+                self.current_target = None
+                self.current_pid = None
+                
+                return {'error': None, 'data': {'message': 'Successfully detached'}}
+            else:
+                return {'error': 'No active session to detach', 'data': None}
+                
+        except Exception as e:
+            return {'error': str(e), 'data': None}

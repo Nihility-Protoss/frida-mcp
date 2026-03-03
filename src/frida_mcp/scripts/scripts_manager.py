@@ -256,6 +256,38 @@ class ScriptManager:
         except Exception as e:
             return {'error': str(e), 'data': None}
     
+    def inject_script(self, session: frida.core.Session, script_name: str = "default") -> Dict[str, Any]:
+        """
+        将当前脚本注入到session
+        
+        Args:
+            session: Frida session实例
+            script_name: 脚本名称标识符
+            
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 注入结果信息
+        """
+        try:
+            script_content = self.open_script
+            if not script_content:
+                return {'error': 'No script content available', 'data': None}
+            
+            script = session.create_script(script_content)
+            script.load()
+            
+            return {
+                'error': None,
+                'data': {
+                    'script_name': script_name,
+                    'script_content_length': len(script_content)
+                }
+            }
+            
+        except Exception as e:
+            return {'error': str(e), 'data': None}
+    
     def load_multiple_scripts(self, filenames: List[str], **replacements) -> Dict[str, Any]:
         """加载多个脚本文件
         

@@ -1,33 +1,47 @@
 import frida
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+from collections import deque
 
 from .inject import BaseInjector
 
 class WindowsInjector(BaseInjector):
     """
-    Concrete implementation of BaseInjector for Windows devices.
+    Windows平台专用注入器实现
+    符合BaseInjector抽象方法签名
     """
-    async def attach(self, target: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
-        """Attach to a process on Windows and inject script."""
-        # Cleanup old session
-        if self.session:
-            try:
-                self.session.detach()
-            except:
-                pass
-            self.session = None
-
+    
+    def __init__(self, device: frida.core.Device, messages_buffer: deque):
+        super().__init__(device, messages_buffer)
+    
+    async def attach(self, target: str) -> Dict[str, Any]:
+        """
+        附加到Windows进程
+        
+        Args:
+            target: 目标进程（PID或进程名）
+            
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 附加结果信息
+        """
+        # 清理旧会话
+        detach_result = self.detach()
+        if detach_result['error']:
+            self._log(f"Warning: Failed to detach old session: {detach_result['error']}")
+        
         target = target.strip()
         
         try:
-            device = self._get_device(device_id)
+            # 使用初始化时的device
+            device = self.device
             
-            # Determine PID
+            # 确定PID
             if target.isdigit():
                 pid = int(target)
-                app_name = target
+                process_name = target
             else:
-                # On Windows, enumerate_processes is more common than enumerate_applications
+                # Windows使用enumerate_processes
                 processes = device.enumerate_processes()
                 target_process = None
                 
@@ -37,76 +51,67 @@ class WindowsInjector(BaseInjector):
                         break
                 
                 if not target_process:
-                    return {
-                        "status": "error",
-                        "message": f"Unable to find running process: {target}"
-                    }
+                    return {'error': f'Unable to find running process: {target}', 'data': None}
                 
                 pid = target_process.pid
-                app_name = target_process.name
+                process_name = target_process.name
             
-            # Attach
+            # 附加到进程
             self.session = device.attach(pid)
             self._bind_session_events(self.session)
             
-            # Inject script
-            script_loaded = False
-            if script_content:
-                try:
-                    script_loaded = await self._load_script(self.session, script_content, output_file=output_file)
-                except Exception as e:
-                    self._log(f"script load error: {e}")
-                    return {"status": "error", "message": str(e)}
+            self.current_target = process_name
+            self.current_pid = pid
             
             return {
-                "status": "success",
-                "pid": pid,
-                "target": target,
-                "name": app_name,
-                "script_loaded": script_loaded,
-                "message": "Attached successfully."
+                'error': None,
+                'data': {
+                    'pid': pid,
+                    'process': process_name,
+                    'message': 'Successfully attached to Windows process'
+                }
             }
             
         except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-    async def spawn(self, program_name: str, device_id: Optional[str] = None, script_content: Optional[str] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
-        """Spawn a program on Windows and inject script before resuming."""
-        # Cleanup old session
-        if self.session:
-            try:
-                self.session.detach()
-            except:
-                pass
-            self.session = None
-
+            return {'error': str(e), 'data': None}
+    
+    async def spawn(self, target: str) -> Dict[str, Any]:
+        """
+        启动Windows程序
+        
+        Args:
+            target: 程序名称或路径
+            
+        Returns:
+            dict: {'error': str, 'data': dict}
+                error: 错误信息，成功时为None
+                data: 启动结果信息
+        """
+        # 清理旧会话
+        detach_result = self.detach()
+        if detach_result['error']:
+            self._log(f"Warning: Failed to detach old session: {detach_result['error']}")
+        
         try:
-            device = self._get_device(device_id)
+            # 使用初始化时的device
+            device = self.device
             
-            # Spawn
-            pid = device.spawn([program_name]) # Frida spawn expects a list of arguments
+            # 启动程序
+            pid = device.spawn([target])  # Frida spawn expects a list of arguments
             self.session = device.attach(pid)
             self._bind_session_events(self.session)
             
-            # Inject script
-            script_loaded = False
-            if script_content:
-                try:
-                    script_loaded = await self._load_script(self.session, script_content, init_delay=0.1, output_file=output_file)
-                except Exception as e:
-                    self._log(f"script load error: {e}")
-                    return {"status": "error", "message": str(e)}
-            
-            # Resume
-            device.resume(pid)
+            self.current_target = target
+            self.current_pid = pid
             
             return {
-                "status": "success",
-                "pid": pid,
-                "program": program_name,
-                "script_loaded": script_loaded,
-                "message": "Program spawned successfully."
+                'error': None,
+                'data': {
+                    'pid': pid,
+                    'program': target,
+                    'message': 'Successfully spawned Windows program (paused)'
+                }
             }
             
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {'error': str(e), 'data': None}
