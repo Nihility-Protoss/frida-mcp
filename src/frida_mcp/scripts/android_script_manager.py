@@ -17,7 +17,7 @@ class AndroidJSFileLoader(JSFileLoader):
             super().__init__(scripts_dir)
         else:
             # 默认使用android目录下的js子目录
-            super().__init__(str(Path(__file__).parent / "js"))
+            super().__init__(str(Path(__file__).parent / "android-js"))
 
 class AndroidScriptManager(ScriptManager):
     """Android平台专用脚本管理器"""

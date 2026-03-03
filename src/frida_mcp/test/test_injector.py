@@ -3,13 +3,12 @@
 测试新的BaseInjector架构
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
-from android.android_script_manager import AndroidScriptManager
+from scripts.android_script_manager import AndroidScriptManager
 from scripts.scripts_manager import ScriptManager
-from windows.windows_script_manager import WindowsScriptManager
+from scripts.windows_script_manager import WindowsScriptManager
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -23,8 +22,8 @@ def test_injector_structure():
         from util.inject_android import AndroidInjector
         from util.inject_windows import WindowsInjector
         from scripts.scripts_manager import ScriptManager
-        from android.android_script_manager import AndroidScriptManager
-        from windows.windows_script_manager import WindowsScriptManager
+        from scripts.android_script_manager import AndroidScriptManager
+        from scripts.windows_script_manager import WindowsScriptManager
         
         print("   ✅ 所有类导入成功")
         print(f"   - BaseInjector: {BaseInjector}")

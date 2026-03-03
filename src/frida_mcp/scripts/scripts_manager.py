@@ -58,7 +58,7 @@ class JSFileLoader:
             self.scripts_dir = Path(scripts_dir)
         else:
             # 默认使用当前文件所在目录的js子目录
-            self.scripts_dir = Path(__file__).parent / "js"
+            self.scripts_dir = Path(__file__).parent / "util-js"
         
         # 确保目录存在
         self.scripts_dir.mkdir(exist_ok=True)
@@ -221,9 +221,7 @@ class ScriptManager:
         self.replacer = StringReplacer()
         self.builder = ScriptBuilder()
         self.open_script: str = self.builder.build()
-    
-    
-    
+
     def load_script_from_file(self, filename: str, **replacements) -> Dict[str, Any]:
         """从文件加载并构建脚本
         

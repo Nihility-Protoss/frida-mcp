@@ -3,10 +3,8 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 """
 
 import os
-import platform
 from collections import deque
 from typing import Optional, Dict, Any, Deque, List
-from typing import Annotated
 
 import frida
 from mcp.server.fastmcp import FastMCP
@@ -15,10 +13,10 @@ from pydantic import Field
 import config.default_config as cfg_module
 from config.default_config import load_config, GLOBAL_CONFIG_PATH
 from config.guard_config import guard_os
+from scripts.scripts_manager import ScriptManager
 from util.frida_server_manager_android import AndroidServerManager
 from util.frida_server_manager_windows import WindowsServerManager
 from util.inject import BaseInjector
-from scripts.scripts_manager import ScriptManager
 from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 
@@ -185,48 +183,6 @@ def config_init(
             "status": "error",
             "message": f"Failed to initialize project: {str(e)}"
         }
-
-
-def _resolve_script_content(
-        initial_script: Optional[str], script_file_path: Optional[str]
-) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
-    """
-    解析脚本内容，优先使用文件路径，fallback到代码字符串
-
-    Args:
-        initial_script: JS代码字符串
-        script_file_path: JS文件绝对路径
-
-    Returns:
-        tuple: (script_content, error_response)
-        - 成功时返回 (script_content_string, None)
-        - 失败时返回 (None, error_dict)
-    """
-    if script_file_path:
-        if not os.path.isabs(script_file_path):
-            return None, {
-                "status": "error",
-                "message": "script_file_path must be an absolute path"
-            }
-        if not script_file_path.endswith('.js'):
-            return None, {
-                "status": "error",
-                "message": "script_file_path must be a .js file"
-            }
-        try:
-            with open(script_file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            _frida_mcp_log(f"Loaded JS script from file: {script_file_path}")
-            return content, None
-        except Exception as e:
-            return None, {
-                "status": "error",
-                "message": f"Failed to read JS file {script_file_path}: {str(e)}"
-            }
-    elif initial_script:
-        return initial_script, None
-    else:
-        return None, None
 
 
 def _get_device(device_id: Optional[str]) -> frida.core.Device:
@@ -783,6 +739,49 @@ async def spawn(package_name: str) -> Dict[str, Any]:
         "package": package_name.strip(),
         "message": f"Successfully spawned {package_name.strip()}"
     }
+
+
+def _resolve_script_content(
+        initial_script: Optional[str], script_file_path: Optional[str]
+) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """
+    解析脚本内容，优先使用文件路径，fallback到代码字符串
+
+    Args:
+        initial_script: JS代码字符串
+        script_file_path: JS文件绝对路径
+
+    Returns:
+        tuple: (script_content, error_response)
+        - 成功时返回 (script_content_string, None)
+        - 失败时返回 (None, error_dict)
+    """
+    if script_file_path:
+        if not os.path.isabs(script_file_path):
+            return None, {
+                "status": "error",
+                "message": "script_file_path must be an absolute path"
+            }
+        if not script_file_path.endswith('.js'):
+            return None, {
+                "status": "error",
+                "message": "script_file_path must be a .js file"
+            }
+        try:
+            with open(script_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            _frida_mcp_log(f"Loaded JS script from file: {script_file_path}")
+            return content, None
+        except Exception as e:
+            return None, {
+                "status": "error",
+                "message": f"Failed to read JS file {script_file_path}: {str(e)}"
+            }
+    elif initial_script:
+        return initial_script, None
+    else:
+        return None, None
+
 
 @mcp.tool()
 async def inject_script(

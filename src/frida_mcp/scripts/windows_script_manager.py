@@ -17,7 +17,7 @@ class WindowsJSFileLoader(JSFileLoader):
             super().__init__(scripts_dir)
         else:
             # 默认使用windows目录下的js子目录
-            super().__init__(str(Path(__file__).parent / "js"))
+            super().__init__(str(Path(__file__).parent / "windows-js"))
 
 class WindowsScriptManager(ScriptManager):
     """Windows平台专用脚本管理器"""

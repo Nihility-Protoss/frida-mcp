@@ -5,12 +5,6 @@
 
 import sys
 from pathlib import Path
-from util.inject import BaseInjector
-from util.inject_android import AndroidInjector
-from util.inject_windows import WindowsInjector
-from scripts.scripts_manager import ScriptManager
-from android.android_script_manager import AndroidScriptManager
-from windows.windows_script_manager import WindowsScriptManager
 
 # 添加项目根目录到Python路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
