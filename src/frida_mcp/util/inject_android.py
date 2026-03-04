@@ -4,6 +4,8 @@ from collections import deque
 
 from scripts.android_script_manager import AndroidScriptManager
 from .inject import BaseInjector
+from .message_class import MessageLog
+
 
 class AndroidInjector(BaseInjector):
     """
@@ -11,7 +13,7 @@ class AndroidInjector(BaseInjector):
     符合BaseInjector抽象方法签名
     """
     
-    def __init__(self, device: frida.core.Device, messages_buffer: deque):
+    def __init__(self, device: frida.core.Device, messages_buffer: MessageLog):
         super().__init__(device, messages_buffer)
         self.script_manager = AndroidScriptManager()
     

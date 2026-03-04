@@ -2,12 +2,13 @@
 修正的BaseInjector类，符合指定的抽象方法签名
 """
 
-import frida
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-from collections import deque
+
+import frida
 
 from scripts.scripts_manager import ScriptManager
+from .message_class import MessageLog
 
 
 class BaseInjector(ABC):
@@ -16,7 +17,7 @@ class BaseInjector(ABC):
     device信息在初始化时传入，messages_buffer必须传入
     """
     
-    def __init__(self, device: frida.core.Device, messages_buffer: deque):
+    def __init__(self, device: frida.core.Device, messages_buffer: MessageLog):
         """
         初始化注入器
         

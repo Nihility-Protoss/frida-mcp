@@ -31,44 +31,97 @@ class AndroidScriptManager(ScriptManager):
     
     def load_activity_hook(self, package_name: str, activity_name: str) -> Dict[str, Any]:
         """加载Activity生命周期Hook脚本"""
+        this_script_filename = "activity_hook.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
         return self.load_script_from_file(
-            "activity_hook.js",
+            this_script_filename,
             package_name=package_name,
             activity_name=activity_name
         )
     
     def load_broadcast_hook(self, package_name: str, action: str) -> Dict[str, Any]:
         """加载广播接收器Hook脚本"""
+        this_script_filename = "broadcast_hook.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
         return self.load_script_from_file(
-            "broadcast_hook.js",
+            this_script_filename,
             package_name=package_name,
             action=action
         )
     
     def load_service_hook(self, package_name: str, service_name: str) -> Dict[str, Any]:
         """加载服务Hook脚本"""
+        this_script_filename = "service_hook.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
         return self.load_script_from_file(
-            "service_hook.js",
+            this_script_filename,
             package_name=package_name,
             service_name=service_name
         )
     
     def load_shared_preferences_hook(self, package_name: str, pref_name: str) -> Dict[str, Any]:
         """加载SharedPreferences Hook脚本"""
+        this_script_filename = "shared_prefs_hook.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
         return self.load_script_from_file(
-            "shared_prefs_hook.js",
+            this_script_filename,
             package_name=package_name,
             pref_name=pref_name
         )
     
     def load_ssl_pinning_bypass(self) -> Dict[str, Any]:
         """加载SSL证书固定绕过脚本"""
-        return self.load_script_from_file("ssl_pinning_bypass.js")
+        this_script_filename = "ssl_pinning_bypass.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(this_script_filename)
     
     def load_root_detection_bypass(self) -> Dict[str, Any]:
         """加载Root检测绕过脚本"""
-        return self.load_script_from_file("root_detection_bypass.js")
+        this_script_filename = "root_detection_bypass.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(this_script_filename)
     
     def load_frida_detection_bypass(self) -> Dict[str, Any]:
         """加载Frida检测绕过脚本"""
-        return self.load_script_from_file("frida_detection_bypass.js")
+        this_script_filename = "frida_detection_bypass.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(this_script_filename)
+
+if __name__ == '__main__':
+    a = AndroidScriptManager()
+    print(a.get_available_scripts())

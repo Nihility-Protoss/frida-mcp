@@ -338,7 +338,7 @@ class ScriptManager:
         """
         try:
             files = self.file_loader.get_available_files()
-            return {'error': None, 'data': files}
+            return {'error': None, 'data': files.get("data")}
         except Exception as e:
             return {'error': str(e), 'data': []}
     

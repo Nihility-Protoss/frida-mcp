@@ -4,6 +4,7 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 
 import os
 from collections import deque
+from time import sleep
 from typing import Optional, Dict, Any, Deque, List
 
 import frida
@@ -19,6 +20,7 @@ from util.frida_server_manager_windows import WindowsServerManager
 from util.inject import BaseInjector
 from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
+from util.message_class import MessageLog
 
 __version__ = "0.2.0"
 
@@ -29,7 +31,7 @@ MCP_PORT: int = 8032
 # Global state management - simplified
 injector: Optional[BaseInjector] = None
 # Global message buffer (store raw log lines)
-messages_buffer: Deque[str] = deque(maxlen=5000)
+messages_buffer: MessageLog = MessageLog()
 
 
 # Append client-side Frida logs to the global buffer
@@ -612,7 +614,7 @@ def config_get() -> Dict[str, Any]:
 @mcp.tool()
 def get_messages(max_messages: int = 100) -> Dict[str, Any]:
     """
-    获取全局 hook/log 文本缓冲（非消费模式）。
+    获取指定文本数量的全局 hook/log 文本缓冲（非消费模式）。
 
     Args:
       - max_messages: 返回的最大条数（默认 100）
@@ -622,22 +624,27 @@ def get_messages(max_messages: int = 100) -> Dict[str, Any]:
     """
     if max_messages is None or max_messages < 0:
         max_messages = 0
-    buffer = messages_buffer
-    if not buffer or len(buffer) == 0:
-        return {
-            "status": "success",
-            "messages": [],
-            "remaining": 0
-        }
-    snapshot = list(buffer)
-    if max_messages > 0:
-        snapshot = snapshot[-max_messages:]
-    else:
-        snapshot = []
+    snapshot = messages_buffer.get_messages(max_messages)
     return {
         "status": "success",
+        "remaining": len(snapshot),
         "messages": snapshot,
-        "remaining": len(buffer)
+    }
+
+
+@mcp.tool()
+def get_new_messages() -> Dict[str, Any]:
+    """
+    获取上次输出到此刻之间的所有 log 数据，建议优先使用该 API
+
+    Returns:
+      - {status, messages, remaining}
+    """
+    snapshot = messages_buffer.get_new_messages()
+    return {
+        "status": "success",
+        "remaining": len(snapshot),
+        "messages": snapshot,
     }
 
 
@@ -744,113 +751,6 @@ async def spawn(package_name: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def inject_user_script_run(
-        script_content: str,
-        script_name: str = "user_script"
-) -> Dict[str, Any]:
-    """
-    将JavaScript脚本注入到当前活跃的session中，仅执行注入的部分。
-    返回值中的 message 为调用 get_messages 函数得到的最后20条日志。
-
-    Args:
-      - script_content: 要注入的Frida JS代码字符串
-      - script_name: 脚本名称标识符，默认为"user_script"
-
-    Returns:
-      - {status, ?script_name, ?script_content_length, message}
-    """
-    if not injector:
-        return {
-            "status": "error",
-            "message": "Injector not initialized. Please call attach/spawn first."
-        }
-
-    if not injector.is_connected():
-        return {
-            "status": "error",
-            "message": "No active session. Please call attach or spawn."
-        }
-    try:
-        script_manager = ScriptManager()
-        script_manager.add_custom_section(script_name, script_content)
-
-        inject_result = injector.inject_script(script_manager)
-
-        if inject_result['error']:
-            return {
-                "status": "error",
-                "message": f"Failed to inject script: {inject_result['error']}"
-            }
-
-        return {
-            "status": "success",
-            "script_name": script_name,
-            "script_content_length": len(script_content),
-            "message": get_messages(20)
-        }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Error injecting script: {str(e)}"
-        }
-
-
-@mcp.tool()
-async def inject_user_script_run_all(
-        script_content: Optional[str] = None,
-        script_name: str = "custom_script"
-) -> Dict[str, Any]:
-    """
-    将JavaScript脚本注入到当前活跃的session中，执行 ScriptManager 中所有内容。
-    返回值中的 message 为调用 get_messages 函数得到的最后20条日志。
-
-    Args:
-      - script_content: 要注入的Frida JS代码字符串，为空时注入 ScriptManager 中已有的内容
-      - script_name: 脚本名称标识符，默认为"custom_script"
-
-    Returns:
-      - {status, ?script_name, ?script_content_length, message}
-    """
-    if not injector:
-        return {
-            "status": "error",
-            "message": "Injector not initialized. Please call attach/spawn first."
-        }
-
-    if not injector.is_connected():
-        return {
-            "status": "error",
-            "message": "No active session. Please call attach or spawn."
-        }
-
-    try:
-        if script_content:
-            injector.script_manager.add_custom_section(script_name, script_content)
-
-        inject_result = injector.inject_script()
-
-        if inject_result['error']:
-            return {
-                "status": "error",
-                "message": f"Failed to inject script: {inject_result['error']}"
-            }
-
-        return {
-            "status": "success",
-            "script_name": script_name,
-            "script_content_length": len(script_content),
-            "message": get_messages(20)
-        }
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Error injecting script: {str(e)}"
-        }
-
-
-@mcp.tool()
 async def detach() -> Dict[str, Any]:
     """
     断开当前活跃的session连接。
@@ -903,6 +803,132 @@ async def get_session_info() -> Dict[str, Any]:
         "target": session_info['data']['target'],
         "pid": session_info['data']['pid'],
         "message": f"Active session: {session_info['data']['target']} (PID: {session_info['data']['pid']})"
+    }
+
+
+@mcp.tool()
+async def inject_user_script_run(
+        script_content: str,
+        script_name: str = "user_script"
+) -> Dict[str, Any]:
+    """
+    将JavaScript脚本注入到当前活跃的session中，仅执行注入的部分。
+    完成操作后，通过 get_new_messages 函数获取本次操作的所有log返回信息。
+
+    Args:
+      - script_content: 要注入的Frida JS代码字符串
+      - script_name: 脚本名称标识符，默认为"user_script"
+
+    Returns:
+      - {status, ?script_name, ?script_content_length}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+
+    if not injector.is_connected():
+        return {
+            "status": "error",
+            "message": "No active session. Please call attach or spawn."
+        }
+    try:
+        script_manager = ScriptManager()
+        script_manager.add_custom_section(script_name, script_content)
+
+        inject_result = injector.inject_script(script_manager)
+
+        if inject_result['error']:
+            return {
+                "status": "error",
+                "message": f"Failed to inject script: {inject_result['error']}"
+            }
+
+        return {
+            "status": "success",
+            "script_name": script_name,
+            "script_content_length": len(script_content),
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error injecting script: {str(e)}"
+        }
+
+
+@mcp.tool()
+async def inject_user_script_run_all(
+        script_content: Optional[str] = None,
+        script_name: str = "custom_script"
+) -> Dict[str, Any]:
+    """
+    将JavaScript脚本注入到当前活跃的session中，执行 ScriptManager 中所有内容。
+    完成操作后，通过 get_new_messages 函数获取本次操作的所有log返回信息。
+
+    Args:
+      - script_content: 要注入的Frida JS代码字符串，为空时注入 ScriptManager 中已有的内容
+      - script_name: 脚本名称标识符，默认为"custom_script"
+
+    Returns:
+      - {status, ?script_name, ?script_content_length}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+
+    if not injector.is_connected():
+        return {
+            "status": "error",
+            "message": "No active session. Please call attach or spawn."
+        }
+
+    try:
+        if script_content:
+            injector.script_manager.add_custom_section(script_name, script_content)
+
+        inject_result = injector.inject_script()
+
+        if inject_result['error']:
+            return {
+                "status": "error",
+                "message": f"Failed to inject script: {inject_result['error']}"
+            }
+
+        return {
+            "status": "success",
+            "script_name": script_name,
+            "script_content_length": len(script_content),
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error injecting script: {str(e)}"
+        }
+
+@mcp.tool()
+def get_script_list() -> Dict[str, Any]:
+    """
+    获得当前 injector 下所有可用的内置 script 文件名列表
+
+    Returns:
+
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+
+    available_scripts = injector.script_manager.get_available_scripts()
+
+    return {
+        "status": "success" if available_scripts["error"] is None else "error",
+        "message": available_scripts["data"] if available_scripts["error"] is None else available_scripts["error"]
     }
 
 
