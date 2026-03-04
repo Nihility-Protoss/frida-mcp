@@ -7,6 +7,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from collections import deque
 
+from scripts.scripts_manager import ScriptManager
+
+
 class BaseInjector(ABC):
     """
     修正的BaseInjector类，符合指定的抽象方法签名
@@ -26,6 +29,7 @@ class BaseInjector(ABC):
         self.session: Optional[frida.core.Session] = None
         self.current_target: Optional[str] = None
         self.current_pid: Optional[int] = None
+        self.script_manager: Optional[ScriptManager] = None
     
     def __str__(self):
         return f"{self.__class__.__name__}-{self.current_target}-{self.current_pid}"
@@ -81,13 +85,15 @@ class BaseInjector(ABC):
         except Exception as e:
             return {'error': str(e), 'data': None}
 
-    def inject_script(self, script_manager, script_name: str = "default") -> Dict[str, Any]:
+    def get_script_manager(self) -> ScriptManager:
+        return self.script_manager
+
+    def inject_script(self, script_manager:ScriptManager = None) -> Dict[str, Any]:
         """
-        使用ScriptManager将脚本注入到当前session
+        使用 self.ScriptManager 将脚本注入到当前session
 
         Args:
-            script_manager: ScriptManager实例
-            script_name: 脚本名称标识符
+            script_manager: 用户输入的单独执行的script，不影响class中的执行流
 
         Returns:
             dict: {'error': str, 'data': dict}
@@ -95,13 +101,23 @@ class BaseInjector(ABC):
                 data: 注入结果信息
         """
         if not self.session:
-            return {'error': 'No active session. Please attach or spawn first.', 'data': None}
+            return {
+                'error': 'No active session. Please attach or spawn first.',
+                'data': None
+            }
+
+        script_manager = self.script_manager if script_manager is None else script_manager
 
         try:
             # 获取当前脚本内容
-            script_content = script_manager.open_script
+            script_content = str(script_manager)
             if not script_content:
-                return {'error': 'No script content available', 'data': None}
+                return {
+                    'error': 'No script content available',
+                    'data': None
+                }
+
+            script_name = ",".join(script_manager.name)
 
             # 创建并加载脚本
             script = self.session.create_script(script_content)

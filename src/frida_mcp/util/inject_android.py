@@ -2,6 +2,7 @@ import frida
 from typing import Dict, Any
 from collections import deque
 
+from scripts.android_script_manager import AndroidScriptManager
 from .inject import BaseInjector
 
 class AndroidInjector(BaseInjector):
@@ -12,6 +13,7 @@ class AndroidInjector(BaseInjector):
     
     def __init__(self, device: frida.core.Device, messages_buffer: deque):
         super().__init__(device, messages_buffer)
+        self.script_manager = AndroidScriptManager()
     
     async def attach(self, target: str) -> Dict[str, Any]:
         """

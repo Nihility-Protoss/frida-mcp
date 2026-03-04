@@ -25,7 +25,6 @@ class WindowsScriptManager(ScriptManager):
     def __init__(self, scripts_dir: Optional[str] = None):
         """初始化Windows专用脚本管理器"""
         super().__init__(scripts_dir)
-        # 替换为Windows专用文件加载器
         self.file_loader = WindowsJSFileLoader(scripts_dir)
         self.builder = ScriptBuilder()
         self.open_script = self.builder.build()
@@ -74,7 +73,3 @@ class WindowsScriptManager(ScriptManager):
     def load_uac_bypass(self) -> Dict[str, Any]:
         """加载UAC绕过脚本"""
         return self.load_script_from_file("uac_bypass.js")
-    
-    def get_windows_specific_scripts(self) -> Dict[str, Any]:
-        """获取Windows平台专用脚本列表"""
-        return self.file_loader.get_available_scripts()

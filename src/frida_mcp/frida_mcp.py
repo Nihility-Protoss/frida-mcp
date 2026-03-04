@@ -31,6 +31,7 @@ injector: Optional[BaseInjector] = None
 # Global message buffer (store raw log lines)
 messages_buffer: Deque[str] = deque(maxlen=5000)
 
+
 # Append client-side Frida logs to the global buffer
 def _frida_mcp_log(text: str) -> None:
     messages_buffer.append(f"[frida-mcp] {text}")
@@ -671,6 +672,7 @@ def injector_init() -> Dict[str, Any]:
             "message": "injector init before."
         }
 
+
 @mcp.tool()
 async def attach(target: str) -> Dict[str, Any]:
     """
@@ -741,107 +743,106 @@ async def spawn(package_name: str) -> Dict[str, Any]:
     }
 
 
-def _resolve_script_content(
-        initial_script: Optional[str], script_file_path: Optional[str]
-) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
-    """
-    解析脚本内容，优先使用文件路径，fallback到代码字符串
-
-    Args:
-        initial_script: JS代码字符串
-        script_file_path: JS文件绝对路径
-
-    Returns:
-        tuple: (script_content, error_response)
-        - 成功时返回 (script_content_string, None)
-        - 失败时返回 (None, error_dict)
-    """
-    if script_file_path:
-        if not os.path.isabs(script_file_path):
-            return None, {
-                "status": "error",
-                "message": "script_file_path must be an absolute path"
-            }
-        if not script_file_path.endswith('.js'):
-            return None, {
-                "status": "error",
-                "message": "script_file_path must be a .js file"
-            }
-        try:
-            with open(script_file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            _frida_mcp_log(f"Loaded JS script from file: {script_file_path}")
-            return content, None
-        except Exception as e:
-            return None, {
-                "status": "error",
-                "message": f"Failed to read JS file {script_file_path}: {str(e)}"
-            }
-    elif initial_script:
-        return initial_script, None
-    else:
-        return None, None
-
-
 @mcp.tool()
-async def inject_script(
-        script_content: Optional[str] = None,
-        script_file_path: Optional[str] = None,
-        script_name: str = "custom_script"
+async def inject_user_script_run(
+        script_content: str,
+        script_name: str = "user_script"
 ) -> Dict[str, Any]:
     """
-    将JavaScript脚本注入到当前活跃的session中。
+    将JavaScript脚本注入到当前活跃的session中，仅执行注入的部分。
+    返回值中的 message 为调用 get_messages 函数得到的最后20条日志。
 
     Args:
       - script_content: 要注入的Frida JS代码字符串
-      - script_file_path: 要注入的JS文件绝对路径（优先于script_content）
-      - script_name: 脚本名称标识符，默认为"custom_script"
+      - script_name: 脚本名称标识符，默认为"user_script"
 
     Returns:
-      - {status, script_name, script_content_length, message}
+      - {status, ?script_name, ?script_content_length, message}
     """
     if not injector:
         return {
             "status": "error",
             "message": "Injector not initialized. Please call attach/spawn first."
         }
-    
+
     if not injector.is_connected():
         return {
             "status": "error",
-            "message": "No active session. Please re call attach or spawn."
+            "message": "No active session. Please call attach or spawn."
         }
-
-    # 解析脚本内容
-    script_content_resolved, error_response = _resolve_script_content(script_content, script_file_path)
-    if error_response:
-        return error_response
-
-    if not script_content_resolved:
-        return {
-            "status": "error",
-            "message": "No script content provided"
-        }
-
     try:
         script_manager = ScriptManager()
-        script_manager.open_script = script_content_resolved
-        
-        inject_result = injector.inject_script(script_manager, script_name)
-        
+        script_manager.add_custom_section(script_name, script_content)
+
+        inject_result = injector.inject_script(script_manager)
+
         if inject_result['error']:
             return {
                 "status": "error",
                 "message": f"Failed to inject script: {inject_result['error']}"
             }
-        
+
         return {
             "status": "success",
             "script_name": script_name,
-            "script_content_length": len(script_content_resolved),
-            "message": f"Successfully injected script '{script_name}'"
+            "script_content_length": len(script_content),
+            "message": get_messages(20)
         }
-        
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error injecting script: {str(e)}"
+        }
+
+
+@mcp.tool()
+async def inject_user_script_run_all(
+        script_content: Optional[str] = None,
+        script_name: str = "custom_script"
+) -> Dict[str, Any]:
+    """
+    将JavaScript脚本注入到当前活跃的session中，执行 ScriptManager 中所有内容。
+    返回值中的 message 为调用 get_messages 函数得到的最后20条日志。
+
+    Args:
+      - script_content: 要注入的Frida JS代码字符串，为空时注入 ScriptManager 中已有的内容
+      - script_name: 脚本名称标识符，默认为"custom_script"
+
+    Returns:
+      - {status, ?script_name, ?script_content_length, message}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+
+    if not injector.is_connected():
+        return {
+            "status": "error",
+            "message": "No active session. Please call attach or spawn."
+        }
+
+    try:
+        if script_content:
+            injector.script_manager.add_custom_section(script_name, script_content)
+
+        inject_result = injector.inject_script()
+
+        if inject_result['error']:
+            return {
+                "status": "error",
+                "message": f"Failed to inject script: {inject_result['error']}"
+            }
+
+        return {
+            "status": "success",
+            "script_name": script_name,
+            "script_content_length": len(script_content),
+            "message": get_messages(20)
+        }
+
     except Exception as e:
         return {
             "status": "error",
@@ -862,14 +863,14 @@ async def detach() -> Dict[str, Any]:
             "status": "error",
             "message": "Injector not initialized. Please call attach/spawn first."
         }
-    
+
     detach_result = injector.detach()
     if detach_result['error']:
         return {
             "status": "error",
             "message": detach_result['error']
         }
-    
+
     return {
         "status": "success",
         "message": "Successfully detached from target"
@@ -889,14 +890,14 @@ async def get_session_info() -> Dict[str, Any]:
             "status": "error",
             "message": "Injector not initialized. Please call attach/spawn first."
         }
-    
+
     session_info = injector.get_session_info()
     if session_info['error']:
         return {
             "status": "error",
             "message": session_info['error']
         }
-    
+
     return {
         "status": "success",
         "target": session_info['data']['target'],

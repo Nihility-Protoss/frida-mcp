@@ -25,7 +25,6 @@ class AndroidScriptManager(ScriptManager):
     def __init__(self, scripts_dir: Optional[str] = None):
         """初始化Android专用脚本管理器"""
         super().__init__(scripts_dir)
-        # 替换为Android专用文件加载器
         self.file_loader = AndroidJSFileLoader(scripts_dir)
         self.builder = ScriptBuilder()
         self.open_script = self.builder.build()
@@ -73,7 +72,3 @@ class AndroidScriptManager(ScriptManager):
     def load_frida_detection_bypass(self) -> Dict[str, Any]:
         """加载Frida检测绕过脚本"""
         return self.load_script_from_file("frida_detection_bypass.js")
-    
-    def get_android_specific_scripts(self) -> Dict[str, Any]:
-        """获取Android平台专用脚本列表"""
-        return self.file_loader.get_available_scripts()
