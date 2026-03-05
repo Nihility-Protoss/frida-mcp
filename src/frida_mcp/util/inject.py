@@ -3,11 +3,13 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 import frida
 
+from scripts.android_script_manager import AndroidScriptManager
 from scripts.scripts_manager import ScriptManager
+from scripts.windows_script_manager import WindowsScriptManager
 from .message_class import MessageLog
 
 
@@ -30,7 +32,9 @@ class BaseInjector(ABC):
         self.session: Optional[frida.core.Session] = None
         self.current_target: Optional[str] = None
         self.current_pid: Optional[int] = None
-        self.script_manager: Optional[ScriptManager] = None
+        self.script_manager: Optional[
+            Union[ScriptManager | AndroidScriptManager | WindowsScriptManager]
+        ] = None
         self.needs_resume:bool = False
         self.running_script: Optional[frida.core.Script] = None
     

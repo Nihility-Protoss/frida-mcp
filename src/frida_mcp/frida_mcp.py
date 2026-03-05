@@ -3,9 +3,7 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 """
 
 import os
-from collections import deque
-from time import sleep
-from typing import Optional, Dict, Any, Deque, List
+from typing import Optional, Dict, Any, Union, List
 
 import frida
 from mcp.server.fastmcp import FastMCP
@@ -29,7 +27,7 @@ MCP_HOST: str = "0.0.0.0"
 MCP_PORT: int = 8032
 
 # Global state management - simplified
-injector: Optional[BaseInjector, AndroidInjector, WindowsInjector] = None
+injector: Optional[Union[BaseInjector, AndroidInjector, WindowsInjector]] = None
 # Global message buffer (store raw log lines)
 messages_buffer: MessageLog = MessageLog()
 
@@ -126,7 +124,7 @@ def _check_platform_environment(platform: str) -> Dict[str, Any]:
 
 
 def _load_platform_script(platform: str, load_method_name: str, load_func, run_script_bool: bool = True, **kwargs) -> \
-Dict[str, Any]:
+        Dict[str, Any]:
     """
     通用平台脚本加载和注入函数
     
@@ -1120,6 +1118,27 @@ def android_load_script_anti_DexHelper(
 
 
 @mcp.tool()
+def android_load_hook_net_libssl(
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载Android平台的 http/https Hook脚本，直接hook底层代码，直接拿到数据
+    来自 https://bbs.kanxue.com/thread-289085.htm
+
+    Args:
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Android",
+        "load_hook_net_libssl",
+        injector.script_manager.load_hook_net_libssl,
+        run_script_bool
+    )
+
+@mcp.tool()
 def android_load_hook_clone(
         anti_so_name_tag: str = "DexHelper",
         run_script_bool: bool = True
@@ -1144,7 +1163,7 @@ def android_load_hook_clone(
 
 
 @mcp.tool()
-def android_load_activity_hook(
+def android_load_hook_activity(
         package_name: str,
         activity_name: str,
         run_script_bool: bool = True
@@ -1162,11 +1181,88 @@ def android_load_activity_hook(
     """
     return _load_platform_script(
         "Android",
-        "load_activity_hook",
-        injector.script_manager.load_activity_hook,
+        "load_hook_activity",
+        injector.script_manager.load_hook_activity,
         run_script_bool,
         package_name=package_name,
         activity_name=activity_name
+    )
+
+
+# MCP Tool Windows Script
+
+@mcp.tool()
+def windows_load_monitor_api(
+        module_name: str,
+        api_name: str,
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载 Windows 平台的 API 监控脚本
+
+    Args:
+        module_name: 要监控的模块 DLL 名称
+        api_name: 要监控的 API 名称
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Windows",
+        "load_monitor_api",
+        injector.script_manager.load_monitor_api,
+        run_script_bool,
+        module_name=module_name,
+        api_name=api_name
+    )
+
+
+@mcp.tool()
+def windows_load_monitor_registry(
+        registry_path: str,
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载Windows平台的注册表监控脚本
+
+    Args:
+        registry_path: 要监控的注册表路径
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Windows",
+        "load_monitor_registry",
+        injector.script_manager.load_monitor_registry,
+        run_script_bool,
+        registry_path=registry_path
+    )
+
+
+@mcp.tool()
+def windows_load_monitor_file(
+        file_path: str,
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载Windows平台的文件监控脚本
+
+    Args:
+        file_path: 要监控的文件完整路径
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Windows",
+        "load_monitor_file",
+        injector.script_manager.load_monitor_file,
+        run_script_bool,
+        file_path=file_path
     )
 
 

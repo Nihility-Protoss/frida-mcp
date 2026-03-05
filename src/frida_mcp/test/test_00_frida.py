@@ -1,10 +1,12 @@
 # Baseline Test @test
 
 import frida
+
 target = "1"
 device_id = "local"
 
 device = frida.get_device(device_id)
+
 
 def main():
     # Determine PID
@@ -27,10 +29,12 @@ def main():
                 "message": f"Unable to find running app: {target}"
             })
 
+
 def test_func():
     applications = device.enumerate_applications()
     for app in applications:
         print(app.pid, app.identifier)
+
 
 if __name__ == '__main__':
     test_func()

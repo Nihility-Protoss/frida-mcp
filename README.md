@@ -3,9 +3,14 @@
 这是一个基于 Model Context Protocol (MCP) 的 Frida 动态调试服务器，允许 AI 模型（如 Claude、Gemini 等）通过标准化的接口执行移动端和桌面端的动态分析。
 
 ## 项目来源
-本项目源码和设计参考了以下两个优秀的开源项目：
+本项目源码和设计参考了以下开源项目：
 - [zhizhuodemao/frida-mcp](https://github.com/zhizhuodemao/frida-mcp): 提供了基础的 Android 动态分析和 Frida 管理逻辑。
 - [dnakov/frida-mcp](https://github.com/dnakov/frida-mcp): 提供了基于 MCP Python SDK 的标准实现参考。
+
+部分js文件来自以下文章：
+- [scripts/android-js/anti_libDexHelper.so.js](https://bbs.kanxue.com/thread-289545.htm) [原创]某加固新版frida检测绕过
+- [scripts/android-js/hook_clone.js](https://bbs.kanxue.com/thread-289404.htm) [原创]学某通风控参数分析&Frida绕过(上) 
+- [scripts/android-js/hook_net_libssl.so.js](https://bbs.kanxue.com/thread-289085.htm) frida拦截http、https请求
 
 ## 核心功能
 
