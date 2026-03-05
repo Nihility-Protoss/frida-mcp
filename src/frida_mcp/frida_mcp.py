@@ -806,6 +806,8 @@ async def get_session_info() -> Dict[str, Any]:
     }
 
 
+# MCP Tool Script
+
 @mcp.tool()
 async def inject_user_script_run(
         script_content: str,
@@ -872,7 +874,7 @@ async def inject_user_script_run_all(
       - script_name: 脚本名称标识符，默认为"custom_script"
 
     Returns:
-      - {status, ?script_name, ?script_content_length}
+        {status, ?script_name, ?script_content_length}
     """
     if not injector:
         return {
@@ -916,7 +918,7 @@ def get_script_list() -> Dict[str, Any]:
     获得当前 injector 下所有可用的内置 script 文件名列表
 
     Returns:
-
+        {status, message}
     """
     if not injector:
         return {
@@ -929,6 +931,44 @@ def get_script_list() -> Dict[str, Any]:
     return {
         "status": "success" if available_scripts["error"] is None else "error",
         "message": available_scripts["data"] if available_scripts["error"] is None else available_scripts["error"]
+    }
+
+
+@mcp.tool()
+def get_script_now() -> Dict[str, Any]:
+    """
+    获得当前 injector 中已经构建好的 script
+    Returns:
+        {status, message}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+    return {
+        "status": "success",
+        "message": str(injector.script_manager)
+    }
+
+
+@mcp.tool()
+def reset_script_now() -> Dict[str, Any]:
+    """
+    重置当前 injector 中的 script，恢复初始状态
+    Returns:
+        {status, message}
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+    reset_result = injector.script_manager.reset_script()
+
+    return {
+        "status": "success" if reset_result["error"] is None else "error",
+        "message": reset_result["data"] if reset_result["error"] is None else reset_result["error"]
     }
 
 

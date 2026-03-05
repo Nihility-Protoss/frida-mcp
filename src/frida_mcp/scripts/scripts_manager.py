@@ -322,6 +322,7 @@ class ScriptManager:
                 data: 重置后的脚本
         """
         try:
+            self.name = []
             self.builder = ScriptBuilder()
             self.open_script = self.builder.build()
             return {'error': None, 'data': self.open_script}
