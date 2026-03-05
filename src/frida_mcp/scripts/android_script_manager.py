@@ -3,7 +3,7 @@ Android平台专用脚本管理器
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from scripts.scripts_manager import ScriptManager, JSFileLoader, ScriptBuilder
 
@@ -121,6 +121,48 @@ class AndroidScriptManager(ScriptManager):
                 'data': None
             }
         return self.load_script_from_file(this_script_filename)
+
+    def load_anti_DexHelper(self, hook_addr_list: List[int]) -> Dict[str, Any]:
+        this_script_filename = "anti_libDexHelper.so.js"
+
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(
+            this_script_filename,
+            hook_addr_list = str(hook_addr_list)
+        )
+
+    def load_anti_DexHelper_hook_clone(self) -> Dict[str, Any]:
+        this_script_filename = "anti_libDexHelper.so_hook_clone.js"
+
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(
+            this_script_filename
+        )
+
+    def load_anti_DexHelper_hook_pthread(self) -> Dict[str, Any]:
+        this_script_filename = "anti_libDexHelper.so_hook_pthread_create.js"
+
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(
+            this_script_filename
+        )
+
+
 
 if __name__ == '__main__':
     a = AndroidScriptManager()

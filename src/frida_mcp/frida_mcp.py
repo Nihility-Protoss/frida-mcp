@@ -29,7 +29,7 @@ MCP_HOST: str = "0.0.0.0"
 MCP_PORT: int = 8032
 
 # Global state management - simplified
-injector: Optional[BaseInjector] = None
+injector: Optional[BaseInjector, AndroidInjector, WindowsInjector] = None
 # Global message buffer (store raw log lines)
 messages_buffer: MessageLog = MessageLog()
 
@@ -87,6 +87,83 @@ def config_set(
                 "status": "error",
                 "message": "Invalid 'os'. Use 'Android' or 'Windows'. Example: config_set(os='Android')"
             }
+
+
+def _check_platform_environment(platform: str) -> Dict[str, Any]:
+    """
+    检查指定平台环境是否准备就绪
+    
+    Args:
+        platform: 平台名称，如"Android"或"Windows"
+    
+    Returns:
+        dict: {'error': str, 'data': None} 如果检查失败，否则返回 {'error': None, 'data': None}
+    """
+    current_os = getattr(CONFIG, "os", None)
+    if current_os != platform:
+        return {'error': f"This function only supports {platform}", 'data': None}
+    
+    if not injector:
+        return {'error': "Injector not initialized. Please call attach/spawn first.", 'data': None}
+    
+    if not injector.is_connected():
+        return {'error': "No active session. Please call attach or spawn.", 'data': None}
+    
+    return {'error': None, 'data': None}
+
+
+def _load_platform_script(platform: str, load_method_name: str, load_func, run_script_bool: bool = True, **kwargs) -> Dict[str, Any]:
+    """
+    通用平台脚本加载和注入函数
+    
+    Args:
+        platform: 平台名称，如"Android"或"Windows"
+        load_method_name: 加载方法名称，用于错误消息
+        load_func: 加载函数
+        run_script_bool: 是否立即执行脚本
+        **kwargs: 传递给加载函数的参数
+    
+    Returns:
+        {status, message}
+    """
+    # 检查平台环境
+    check_result = _check_platform_environment(platform)
+    if check_result['error']:
+        return {
+            "status": "error",
+            "message": check_result['error']
+        }
+    
+    try:
+        # 调用加载函数
+        if kwargs:
+            load_func(**kwargs)
+        else:
+            load_func()
+        
+        if run_script_bool:
+            inject_result = injector.inject_script()
+            
+            if inject_result['error']:
+                return {
+                    "status": "error",
+                    "message": f"Failed to inject script: {inject_result['error']}"
+                }
+            return {
+                "status": "success",
+                "message": f"call {load_method_name},inject_script success",
+            }
+        else:
+            return {
+                "status": "success",
+                "message": f"call {load_method_name} success",
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error in {load_method_name}: {str(e)}"
+        }
 
     # Optional persistence
     persisted_to = None
@@ -970,6 +1047,74 @@ def reset_script_now() -> Dict[str, Any]:
         "status": "success" if reset_result["error"] is None else "error",
         "message": reset_result["data"] if reset_result["error"] is None else reset_result["error"]
     }
+
+# MCP Tool Android Script
+
+@mcp.tool()
+def android_load_script_anti_DexHelper_hook_clone(
+        run_script_bool: bool = True,
+) -> Dict[str, Any]:
+    """
+    加载对抗 libDexHelper.so 的 hook clone 代码到即将运行的 script 中，并选择是否立即执行
+
+    Args:
+        run_script_bool: 若为 True 则在加载js文件后立即执行
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Android",
+        "load_anti_DexHelper_hook_clone",
+        injector.script_manager.load_anti_DexHelper_hook_clone,
+        run_script_bool
+    )
+
+
+@mcp.tool()
+def android_load_script_anti_DexHelper_hook_pthread(
+        run_script_bool: bool = True,
+) -> Dict[str, Any]:
+    """
+    加载对抗 libDexHelper.so 的 hook pthread 代码到即将运行的 script 中，并选择是否立即执行
+
+    Args:
+        run_script_bool: 若为 True 则在加载js文件后立即执行
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Android",
+        "load_anti_DexHelper_hook_pthread",
+        injector.script_manager.load_anti_DexHelper_hook_pthread,
+        run_script_bool
+    )
+
+
+@mcp.tool()
+def android_load_script_anti_DexHelper(
+        hook_addr_list: List[int],
+        run_script_bool: bool = True,
+) -> Dict[str, Any]:
+    """
+    加载对抗 libDexHelper.so 的 代码到即将运行的 script 中，并选择是否立即执行
+    会 nop 掉 hook_addr_list 地址对应的所有检测函数
+
+    Args:
+        hook_addr_list: 形似[0x561d0, 0x52cc0, 0x5ded4, 0x5e410, 0x5fb48, 0x592c8, 0x69470]的列表
+        run_script_bool: 若为 True 则在加载js文件后立即执行
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Android",
+        "load_anti_DexHelper",
+        injector.script_manager.load_anti_DexHelper,
+        run_script_bool,
+        hook_addr_list=hook_addr_list
+    )
 
 
 if __name__ == "__main__":

@@ -250,6 +250,7 @@ class ScriptManager:
                 content = self.replacer.replace_with_dict(content, replacements)
             
             # 重新构建脚本
+            self.name.append(filename)
             self.builder = ScriptBuilder()
             self.builder.add_js_file(filename, content)
             self.open_script = self.builder.build()
@@ -258,7 +259,6 @@ class ScriptManager:
         except Exception as e:
             return {'error': str(e), 'data': None}
 
-    
     def load_multiple_scripts(self, filenames: List[str], **replacements) -> Dict[str, Any]:
         """加载多个脚本文件
         
