@@ -1,3 +1,4 @@
+var anti_so_name_tag = "{{anti_so_name_tag}}"
 function hook_clone() {
     var clone = Module.findExportByName('libc.so', 'clone');
 
@@ -23,7 +24,7 @@ function hook_clone() {
                         console.log("   偏移:", ptr(offset));
 
 
-                        if (module.name.includes("DexHelper")) {
+                        if (module.name.includes(anti_so_name_tag)) {
                             console.log(" 检测到目标so!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                         }
                     }

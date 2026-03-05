@@ -29,21 +29,7 @@ class AndroidScriptManager(ScriptManager):
         self.builder = ScriptBuilder()
         self.open_script = self.builder.build()
     
-    def load_activity_hook(self, package_name: str, activity_name: str) -> Dict[str, Any]:
-        """加载Activity生命周期Hook脚本"""
-        this_script_filename = "activity_hook.js"
-        if this_script_filename not in self.get_available_scripts().get("data"):
-            return {
-                'error': f"Not {this_script_filename} in AndroidScriptManager, "
-                         f"call get_script_list check list",
-                'data': None
-            }
-        return self.load_script_from_file(
-            this_script_filename,
-            package_name=package_name,
-            activity_name=activity_name
-        )
-    
+
     def load_broadcast_hook(self, package_name: str, action: str) -> Dict[str, Any]:
         """加载广播接收器Hook脚本"""
         this_script_filename = "broadcast_hook.js"
@@ -162,6 +148,34 @@ class AndroidScriptManager(ScriptManager):
             this_script_filename
         )
 
+    def load_hook_clone(self, anti_so_name_tag:str = "DexHelper") -> Dict[str, Any]:
+        this_script_filename = "hook_clone.js"
+
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(
+            this_script_filename,
+            anti_so_name_tag=anti_so_name_tag
+        )
+
+    def load_activity_hook(self, package_name: str, activity_name: str) -> Dict[str, Any]:
+        """加载Activity生命周期Hook脚本"""
+        this_script_filename = "hook_activity.js"
+        if this_script_filename not in self.get_available_scripts().get("data"):
+            return {
+                'error': f"Not {this_script_filename} in AndroidScriptManager, "
+                         f"call get_script_list check list",
+                'data': None
+            }
+        return self.load_script_from_file(
+            this_script_filename,
+            package_name=package_name,
+            activity_name=activity_name
+        )
 
 
 if __name__ == '__main__':

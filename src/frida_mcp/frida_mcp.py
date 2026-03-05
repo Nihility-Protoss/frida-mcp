@@ -101,6 +101,7 @@ def config_set(
         "message": "Configuration updated in memory." + (f" Persisted to {persisted_to}." if persisted_to else "")
     }
 
+
 def _check_platform_environment(platform: str) -> Dict[str, Any]:
     """
     检查指定平台环境是否准备就绪
@@ -114,17 +115,18 @@ def _check_platform_environment(platform: str) -> Dict[str, Any]:
     current_os = getattr(CONFIG, "os", None)
     if current_os != platform:
         return {'error': f"This function only supports {platform}", 'data': None}
-    
+
     if not injector:
         return {'error': "Injector not initialized. Please call attach/spawn first.", 'data': None}
-    
+
     if not injector.is_connected():
         return {'error': "No active session. Please call attach or spawn.", 'data': None}
-    
+
     return {'error': None, 'data': None}
 
 
-def _load_platform_script(platform: str, load_method_name: str, load_func, run_script_bool: bool = True, **kwargs) -> Dict[str, Any]:
+def _load_platform_script(platform: str, load_method_name: str, load_func, run_script_bool: bool = True, **kwargs) -> \
+Dict[str, Any]:
     """
     通用平台脚本加载和注入函数
     
@@ -145,17 +147,17 @@ def _load_platform_script(platform: str, load_method_name: str, load_func, run_s
             "status": "error",
             "message": check_result['error']
         }
-    
+
     try:
         # 调用加载函数
         if kwargs:
             load_func(**kwargs)
         else:
             load_func()
-        
+
         if run_script_bool:
             inject_result = injector.inject_script()
-            
+
             if inject_result['error']:
                 return {
                     "status": "error",
@@ -170,7 +172,7 @@ def _load_platform_script(platform: str, load_method_name: str, load_func, run_s
                 "status": "success",
                 "message": f"call {load_method_name} success",
             }
-            
+
     except Exception as e:
         return {
             "status": "error",
@@ -987,6 +989,7 @@ async def inject_user_script_run_all(
             "message": f"Error injecting script: {str(e)}"
         }
 
+
 @mcp.tool()
 def get_script_list() -> Dict[str, Any]:
     """
@@ -1045,6 +1048,7 @@ def reset_script_now() -> Dict[str, Any]:
         "status": "success" if reset_result["error"] is None else "error",
         "message": reset_result["data"] if reset_result["error"] is None else reset_result["error"]
     }
+
 
 # MCP Tool Android Script
 
@@ -1112,6 +1116,57 @@ def android_load_script_anti_DexHelper(
         injector.script_manager.load_anti_DexHelper,
         run_script_bool,
         hook_addr_list=hook_addr_list
+    )
+
+
+@mcp.tool()
+def android_load_hook_clone(
+        anti_so_name_tag: str = "DexHelper",
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载Android平台的hook clone脚本，用于对抗指定SO文件的检测
+
+    Args:
+        anti_so_name_tag: 要对抗的SO文件名标签，默认为"DexHelper"
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Android",
+        "load_hook_clone",
+        injector.script_manager.load_hook_clone,
+        run_script_bool,
+        anti_so_name_tag=anti_so_name_tag
+    )
+
+
+@mcp.tool()
+def android_load_activity_hook(
+        package_name: str,
+        activity_name: str,
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载Android平台的Activity生命周期Hook脚本
+
+    Args:
+        package_name: 目标应用包名
+        activity_name: 要Hook的Activity名称
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "Android",
+        "load_activity_hook",
+        injector.script_manager.load_activity_hook,
+        run_script_bool,
+        package_name=package_name,
+        activity_name=activity_name
     )
 
 
