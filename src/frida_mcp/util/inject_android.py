@@ -66,7 +66,8 @@ class AndroidInjector(BaseInjector):
             
             self.current_target = package_name
             self.current_pid = pid
-            
+            self.needs_resume = False
+
             return {
                 'error': None,
                 'data': {
@@ -107,6 +108,7 @@ class AndroidInjector(BaseInjector):
             
             self.current_target = target
             self.current_pid = pid
+            self.needs_resume = True
             
             return {
                 'error': None,

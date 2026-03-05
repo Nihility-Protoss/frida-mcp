@@ -31,6 +31,8 @@ class BaseInjector(ABC):
         self.current_target: Optional[str] = None
         self.current_pid: Optional[int] = None
         self.script_manager: Optional[ScriptManager] = None
+        self.needs_resume:bool = False
+        self.running_script: Optional[frida.core.Script] = None
     
     def __str__(self):
         return f"{self.__class__.__name__}-{self.current_target}-{self.current_pid}"
@@ -120,10 +122,18 @@ class BaseInjector(ABC):
 
             script_name = ",".join(script_manager.name)
 
+            if self.running_script is not None:
+                self.running_script.unload()
+
             # 创建并加载脚本
             script = self.session.create_script(script_content)
             script.on('message', lambda message, data: self._handle_script_message(script_name, message, data))
             script.load()
+            self.running_script = script
+
+            if self.needs_resume:
+                self.device.resume(self.current_pid)
+                self.needs_resume = False
 
             return {
                 'error': None,
