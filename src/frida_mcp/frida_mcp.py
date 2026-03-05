@@ -87,7 +87,19 @@ def config_set(
                 "status": "error",
                 "message": "Invalid 'os'. Use 'Android' or 'Windows'. Example: config_set(os='Android')"
             }
+    # Optional persistence
+    persisted_to = None
+    if save_to:
+        target_path = GLOBAL_CONFIG_PATH if save_to.lower() == 'global' else cfg_module.PROJECT_CONFIG_PATH
+        CONFIG.save(target_path)
+        persisted_to = target_path
 
+    return {
+        "status": "success",
+        "active_config": CONFIG.to_dict(),
+        "persisted_to": persisted_to,
+        "message": "Configuration updated in memory." + (f" Persisted to {persisted_to}." if persisted_to else "")
+    }
 
 def _check_platform_environment(platform: str) -> Dict[str, Any]:
     """
@@ -164,20 +176,6 @@ def _load_platform_script(platform: str, load_method_name: str, load_func, run_s
             "status": "error",
             "message": f"Error in {load_method_name}: {str(e)}"
         }
-
-    # Optional persistence
-    persisted_to = None
-    if save_to:
-        target_path = GLOBAL_CONFIG_PATH if save_to.lower() == 'global' else cfg_module.PROJECT_CONFIG_PATH
-        CONFIG.save(target_path)
-        persisted_to = target_path
-
-    return {
-        "status": "success",
-        "active_config": CONFIG.to_dict(),
-        "persisted_to": persisted_to,
-        "message": "Configuration updated in memory." + (f" Persisted to {persisted_to}." if persisted_to else "")
-    }
 
 
 @mcp.tool()
