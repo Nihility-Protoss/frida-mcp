@@ -55,14 +55,13 @@ class JSFileLoader:
         Args:
             scripts_dir: JS文件目录路径，如果为None则使用默认路径
         """
+        self.scripts_dir = [Path(__file__).parent / "util-js"]
         if scripts_dir:
-            self.scripts_dir = Path(scripts_dir)
-        else:
-            # 默认使用当前文件所在目录的js子目录
-            self.scripts_dir = Path(__file__).parent / "util-js"
+            self.scripts_dir.append(Path(scripts_dir))
 
         # 确保目录存在
-        self.scripts_dir.mkdir(exist_ok=True)
+        for scripts_dir in self.scripts_dir:
+            scripts_dir.mkdir(exist_ok=True)
 
     def load_js_file(self, filename: str) -> Dict[str, Any]:
         """加载单个JS文件
@@ -76,9 +75,13 @@ class JSFileLoader:
                 data: JS文件内容
         """
         try:
-            file_path = self.scripts_dir / filename
-            if not file_path.exists():
-                return {'error': f'JS file not found: {file_path}', 'data': None}
+            file_path = None
+            for scripts_dir in self.scripts_dir:
+                f_path = scripts_dir / filename
+                if f_path.exists():
+                    file_path = f_path
+            if not file_path:
+                return {'error': f'JS file not found: {filename}', 'data': None}
 
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -99,12 +102,13 @@ class JSFileLoader:
         """
         try:
             files_content = {}
-            for js_file in self.scripts_dir.rglob(pattern):
-                relative_path = js_file.relative_to(self.scripts_dir)
-                result = self.load_js_file(str(relative_path))
-                if result['error']:
-                    return {'error': result['error'], 'data': {}}
-                files_content[str(relative_path)] = result['data']
+            for scripts_dir in self.scripts_dir:
+                for js_file in scripts_dir.rglob(pattern):
+                    relative_path = js_file.relative_to(scripts_dir)
+                    result = self.load_js_file(str(relative_path))
+                    if result['error']:
+                        return {'error': result['error'], 'data': {}}
+                    files_content[str(relative_path)] = result['data']
             return {'error': None, 'data': files_content}
         except Exception as e:
             return {'error': str(e), 'data': {}}
@@ -121,8 +125,10 @@ class JSFileLoader:
                 data: 相对路径的文件名列表
         """
         try:
-            files = [str(f.relative_to(self.scripts_dir))
-                     for f in self.scripts_dir.rglob(pattern)]
+            files = []
+            for scripts_dir in self.scripts_dir:
+                files.extend([str(f.relative_to(scripts_dir))
+                              for f in scripts_dir.rglob(pattern)])
             return {'error': None, 'data': files}
         except Exception as e:
             return {'error': str(e), 'data': []}
@@ -348,3 +354,11 @@ class ScriptManager:
     def init_script(self) -> Dict[str, Any]:
         """初始化脚本（保持向后兼容）"""
         return self.reset_script()
+
+    def load_module_enumerateExports(self, module_name):
+        """枚举模块中所有的 Export 函数"""
+        this_script_filename = "module_enumerateExports.js"
+        return self.load_script_from_file(
+            this_script_filename,
+            module_name=module_name
+        )

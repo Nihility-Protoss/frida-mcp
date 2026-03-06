@@ -13,11 +13,8 @@ class AndroidJSFileLoader(JSFileLoader):
 
     def __init__(self, scripts_dir: Optional[str] = None):
         """初始化Android专用JS文件加载器"""
-        if scripts_dir:
-            super().__init__(scripts_dir)
-        else:
-            # 默认使用android目录下的js子目录
-            super().__init__(str(Path(__file__).parent / "android-js"))
+        super().__init__(scripts_dir)
+        self.scripts_dir.append(Path(__file__).parent / "android-js")
 
 
 class AndroidScriptManager(ScriptManager):
