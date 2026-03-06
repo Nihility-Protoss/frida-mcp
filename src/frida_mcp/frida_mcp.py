@@ -20,7 +20,7 @@ from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 from util.message_class import MessageLog
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
