@@ -105,11 +105,14 @@ def _check_platform_environment(platform: str) -> Dict[str, Any]:
     检查指定平台环境是否准备就绪
     
     Args:
-        platform: 平台名称，如"Android"或"Windows"
+        platform: 平台名称，如"Android"或"Windows"，为""时必定通过检查
     
     Returns:
         dict: {'error': str, 'data': None} 如果检查失败，否则返回 {'error': None, 'data': None}
     """
+    if not platform:
+        return {'error': None, 'data': None}
+
     current_os = getattr(CONFIG, "os", None)
     if current_os != platform:
         return {'error': f"This function only supports {platform}", 'data': None}
@@ -1052,6 +1055,29 @@ def reset_script_now() -> Dict[str, Any]:
         "message": reset_result["data"] if reset_result["error"] is None else reset_result["error"]
     }
 
+# MCP Tool Util Script
+
+@mcp.tool()
+def util_load_module_enumerateExports(
+        module_name:str,
+        run_script_bool: bool = False,
+)->Dict[str, Any]:
+    """
+    枚举模块中所有的 Export 函数，Android 和 Windows 环境下都可使用
+    Args:
+        module_name: 模块文件名（非完整路径），允许 Android 环境下的 *.so 和 Windows 环境下 *.dll
+        run_script_bool: 若为 True 则在加载js文件后立即执行
+
+    Returns:
+        {status, message}
+    """
+    return _load_platform_script(
+        "",
+        "load_module_enumerateExports",
+        injector.script_manager.load_module_enumerateExports,
+        run_script_bool,
+        module_name=module_name
+    )
 
 # MCP Tool Android Script
 
