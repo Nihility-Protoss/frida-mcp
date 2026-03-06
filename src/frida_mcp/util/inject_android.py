@@ -12,11 +12,11 @@ class AndroidInjector(BaseInjector):
     Android平台专用注入器实现
     符合BaseInjector抽象方法签名
     """
-    
+
     def __init__(self, device: frida.core.Device, messages_buffer: MessageLog):
         super().__init__(device, messages_buffer)
         self.script_manager = AndroidScriptManager()
-    
+
     async def attach(self, target: str) -> Dict[str, Any]:
         """
         附加到Android进程
@@ -33,13 +33,13 @@ class AndroidInjector(BaseInjector):
         detach_result = self.detach()
         if detach_result['error']:
             self._log(f"Warning: Failed to detach old session: {detach_result['error']}")
-        
+
         target = target.strip()
-        
+
         try:
             # 使用初始化时的device
             device = self.device
-            
+
             # 确定PID
             if target.isdigit():
                 pid = int(target)
@@ -53,17 +53,17 @@ class AndroidInjector(BaseInjector):
                         target_app = app
 
                         break
-                
+
                 if not target_app:
                     return {'error': f'Unable to find running app: {target}', 'data': None}
-                
+
                 pid = target_app.pid
                 package_name = target_app.name
-            
+
             # 附加到进程
             self.session = device.attach(pid)
             self._bind_session_events(self.session)
-            
+
             self.current_target = package_name
             self.current_pid = pid
             self.needs_resume = False
@@ -76,10 +76,10 @@ class AndroidInjector(BaseInjector):
                     'message': 'Successfully attached to Android process'
                 }
             }
-            
+
         except Exception as e:
             return {'error': str(e), 'data': None}
-    
+
     async def spawn(self, target: str) -> Dict[str, Any]:
         """
         启动Android应用
@@ -96,20 +96,20 @@ class AndroidInjector(BaseInjector):
         detach_result = self.detach()
         if detach_result['error']:
             self._log(f"Warning: Failed to detach old session: {detach_result['error']}")
-        
+
         try:
             # 使用初始化时的device
             device = self.device
-            
+
             # 启动应用
             pid = device.spawn(target)
             self.session = device.attach(pid)
             self._bind_session_events(self.session)
-            
+
             self.current_target = target
             self.current_pid = pid
             self.needs_resume = True
-            
+
             return {
                 'error': None,
                 'data': {
@@ -118,6 +118,6 @@ class AndroidInjector(BaseInjector):
                     'message': 'Successfully spawned Android app (paused)'
                 }
             }
-            
+
         except Exception as e:
             return {'error': str(e), 'data': None}

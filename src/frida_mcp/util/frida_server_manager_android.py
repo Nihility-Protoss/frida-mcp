@@ -4,16 +4,18 @@ import time
 from config.default_config import FridaConfig
 from .frida_server_manager import FridaServerManager
 
+
 class AndroidServerManager(FridaServerManager):
     """
     Implementation of FridaServerManager for Android devices via ADB.
     """
+
     def __init__(self, config: FridaConfig, log_callback=None):
         super().__init__(config, log_callback)
         # Separate default settings for path and server name
         if not self.config.server_path:
             self.config.server_path = "/data/local/tmp"
-        
+
         if not self.config.server_name:
             self.config.server_name = "frida-server"
 
@@ -35,26 +37,26 @@ class AndroidServerManager(FridaServerManager):
         """Setup ADB port forwarding using config port"""
         if not self.check_device_connect():
             return False
-        
+
         port = str(self.config.server_port)
         try:
             # Remove existing port forwarding
             subprocess.run([self.config.adb_path, "forward", "--remove-all"], capture_output=True)
-            
+
             # Setup new port forwarding
             result = subprocess.run(
                 [self.config.adb_path, "forward", f"tcp:{port}", f"tcp:{port}"],
                 capture_output=True,
                 text=True
             )
-            
+
             if result.returncode == 0:
                 self.log(f"Port forwarding established: localhost:{port} -> device:{port}")
                 return True
             else:
                 self.log(f"Failed to setup port forwarding: {result.stderr}", error=True)
                 return False
-                
+
         except Exception as e:
             self.log(f"Error setting up port forwarding: {str(e)}", error=True)
             return False
@@ -63,13 +65,13 @@ class AndroidServerManager(FridaServerManager):
         """Get full path to frida-server on device"""
         path = self.config.server_path
         name = self.config.server_name
-        
+
         if not name:
             return path
-            
+
         if path.endswith(name):
             return path
-            
+
         if path.endswith('/'):
             return f"{path}{name}"
         return f"{path}/{name}"
@@ -84,20 +86,20 @@ class AndroidServerManager(FridaServerManager):
         """Start frida-server on the Android device using config"""
         if not self.check_device_connect():
             return False
-        
+
         server_path = self._get_full_server_path()
         server_name = self._get_server_name()
-        
+
         self.log(f"Starting frida-server at {server_path}...")
-        
+
         # Auto setup port forwarding
         self.setup_port_forward()
-        
+
         # Kill existing frida-server processes
         subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
         subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", server_name], capture_output=True)
         time.sleep(1)
-        
+
         # First check if file exists and set permissions
         try:
             # Check if file exists
@@ -106,24 +108,24 @@ class AndroidServerManager(FridaServerManager):
                 capture_output=True,
                 text=True
             )
-            
+
             if "No such file" in check_result.stderr or "No such file" in check_result.stdout:
                 self.log(f"File not found: {server_path}", error=True)
                 self.log("Please check the path and ensure frida-server is pushed to device", error=True)
                 return False
-            
+
             # Set execute permission
             subprocess.run(
                 [self.config.adb_path, "shell", "su", "-c", f"chmod 755 {server_path}"],
                 capture_output=True
             )
-            
+
             # Start frida-server with different methods based on path
             if "/tmp" in server_path or "/data/local/tmp" in server_path:
                 cmd = f"{server_path} -D"
             else:
                 cmd = f"cd {'/'.join(server_path.split('/')[:-1])} && ./{server_path.split('/')[-1]} -D"
-            
+
             # Start in background
             start_result = subprocess.run(
                 [self.config.adb_path, "shell"],
@@ -132,9 +134,9 @@ class AndroidServerManager(FridaServerManager):
                 text=True,
                 timeout=3
             )
-            
+
             time.sleep(0.5)  # Wait for server to start
-            
+
             # Check if server is running
             if self.check_frida_status(silent=True):
                 self.log("Frida server started successfully")
@@ -142,14 +144,14 @@ class AndroidServerManager(FridaServerManager):
             else:
                 # Try alternative method
                 self.log("Trying alternative start method...")
-                
+
                 # Try daemonize approach
                 subprocess.run(
                     [self.config.adb_path, "shell", "su", "-c", f"daemonize {server_path}"],
                     capture_output=True,
                     timeout=2
                 )
-                
+
                 time.sleep(2)
                 if self.check_frida_status(silent=True):
                     self.log("Frida server started successfully (daemonize)")
@@ -161,7 +163,7 @@ class AndroidServerManager(FridaServerManager):
                     if start_result.stderr:
                         self.log(f"Error: {start_result.stderr}", error=True)
                     return False
-                
+
         except subprocess.TimeoutExpired:
             time.sleep(2)
             if self.check_frida_status(silent=True):
@@ -170,7 +172,7 @@ class AndroidServerManager(FridaServerManager):
             else:
                 self.log("Server may be starting, please check status", error=True)
                 return False
-            
+
         except Exception as e:
             self.log(f"Error starting frida server: {str(e)}", error=True)
             return False
@@ -179,18 +181,18 @@ class AndroidServerManager(FridaServerManager):
         """Stop frida-server on the Android device"""
         if not self.check_device_connect():
             return False
-        
+
         self.log("Stopping frida-server...")
         server_name = self._get_server_name()
-        
+
         try:
             # Kill by process name patterns
             subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
             subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", server_name], capture_output=True)
-            
+
             self.log("Frida server stopped")
             return True
-            
+
         except Exception as e:
             self.log(f"Error stopping frida server: {str(e)}", error=True)
             return False
@@ -199,21 +201,21 @@ class AndroidServerManager(FridaServerManager):
         """Check if frida-server is running on Android"""
         if not self.check_device_connect():
             return False
-        
+
         server_name = self._get_server_name()
-        
+
         try:
             result = subprocess.run(
                 [self.config.adb_path, "shell", "ps", "-A"],
                 capture_output=True,
                 text=True
             )
-            
+
             # Check for frida or custom server name
             is_running = False
             if "frida" in result.stdout.lower() or server_name in result.stdout:
                 is_running = True
-            
+
             if is_running:
                 if not silent:
                     self.log("Frida server is running")
@@ -222,7 +224,7 @@ class AndroidServerManager(FridaServerManager):
                 if not silent:
                     self.log("Frida server is not running")
                 return False
-                
+
         except Exception as e:
             if not silent:
                 self.log(f"Error checking frida status: {str(e)}", error=True)
@@ -232,14 +234,14 @@ class AndroidServerManager(FridaServerManager):
         """Execute custom command to start frida-server on Android"""
         if not self.check_device_connect():
             return False
-        
+
         self.log(f"Executing manual command: {command}")
-        
+
         try:
             # First kill existing processes
             subprocess.run([self.config.adb_path, "shell", "su", "-c", "pkill", "-f", "frida"], capture_output=True)
             time.sleep(1)
-            
+
             # Execute the custom command
             result = subprocess.run(
                 [self.config.adb_path, "shell"],
@@ -248,10 +250,10 @@ class AndroidServerManager(FridaServerManager):
                 text=True,
                 timeout=5
             )
-            
+
             self.log("Command executed, checking status...")
             time.sleep(2)
-            
+
             if self.check_frida_status(silent=True):
                 self.log("Frida server started successfully via manual command")
                 return True
@@ -262,7 +264,7 @@ class AndroidServerManager(FridaServerManager):
                 if result.stderr:
                     self.log(result.stderr, error=True)
                 return False
-                    
+
         except subprocess.TimeoutExpired:
             self.log("Command timeout - server may be running in background")
             time.sleep(2)
@@ -270,7 +272,7 @@ class AndroidServerManager(FridaServerManager):
                 self.log("Frida server started successfully")
                 return True
             return False
-                
+
         except Exception as e:
             self.log(f"Error executing command: {str(e)}", error=True)
             return False

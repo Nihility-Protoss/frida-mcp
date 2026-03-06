@@ -68,30 +68,29 @@ python src/frida_mcp/frida_mcp.py
 
 ### 设备与应用工具
 - `enumerate_devices`: 列出所有连接的设备（ID/名称/类型）。
-- `get_device(device_id)`: 获取指定设备信息。
+- `get_device`: 获取指定设备信息。
 - `get_usb_device`: 获取当前 USB 设备信息。
 - `get_local_device`: 获取本地设备信息（Windows）。
-- `list_applications(device_id?)`: 列出已安装应用，包含 `identifier/name/pid?`。
-- `get_frontmost_application(device_id)`: 获取当前前台应用信息。
+- `list_applications`: 列出已安装应用，包含 `identifier/name/pid?`。
+- `get_frontmost_application`: 获取当前前台应用信息。
 
 ### 进程管理
-- `enumerate_processes(device_id?)`: 列出设备上运行的进程（未指定时：Windows 使用本地设备，其他使用 USB）。
-- `get_process_by_name(name, device_id?)`: 按名称模糊匹配进程（返回 `found`、`pid`、`name`）。
-- `resume_process(pid, device_id?)`: 恢复被挂起的进程。
-- `kill_process(pid, device_id?)`: 终止正在运行的进程。
+- `enumerate_processes`: 列出设备上运行的进程（未指定时：Windows 使用本地设备，其他使用 USB）。
+- `get_process_by_name`: 按名称模糊匹配进程（返回 `found`、`pid`、`name`）。
+- `resume_process`: 恢复被挂起的进程。
+- `kill_process`: 终止正在运行的进程。
 
 ### 进程操作与注入
-- `attach(target, device_id?, initial_script?, script_file_path?, output_file?)`: 附加到运行中的进程（PID/包名），可注入 JS（字符串或绝对路径 .js），可保存日志到本地文件。
-- `spawn(package_name, device_id?, initial_script?, script_file_path?, output_file?)`: 拉起应用（挂起态）并注入，随后可由 `resume_process` 恢复。
+- `attach`: 附加到运行中的进程（PID/包名）。
+- `spawn`: 拉起应用（挂起态）并注入，等待 inject 并运行时会自动 resume。
 
 ### 日志管理
-- `get_messages(max_messages=100)`: 获取全局 Hook/Log 文本缓冲快照。
-- `get_new_messages()`: 获取上次输出到此刻之间的所有 log 数据。
+- `get_messages`: 获取全局 Hook/Log 文本缓冲快照。
+- `get_new_messages`: 获取上次输出到此刻之间的所有 log 数据。
 
 ### 会话管理
-- `injector_init`: 初始化注入器，建立与设备的连接。
-- `get_session_info`: 获取当前活跃的session信息。
 - `detach`: 断开当前会话连接。
+- `get_session_info`: 获取当前活跃的session信息。
 
 ### 脚本管理
 - `get_script_list`: 获得当前 injector 下所有可用的内置 script 文件名列表。

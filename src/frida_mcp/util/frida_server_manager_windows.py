@@ -4,10 +4,12 @@ import os
 from config.default_config import FridaConfig
 from .frida_server_manager import FridaServerManager
 
+
 class WindowsServerManager(FridaServerManager):
     """
     Implementation of FridaServerManager for local Windows systems.
     """
+
     def __init__(self, config: FridaConfig, log_callback=None):
         super().__init__(config, log_callback)
 
@@ -15,16 +17,16 @@ class WindowsServerManager(FridaServerManager):
         """Get full path to frida-server on Windows with proper path separators"""
         path = self.config.server_path
         name = self._get_server_name()
-        
+
         if not path:
             return name
-            
+
         # Normalize slashes for Windows
         path = os.path.normpath(path)
-        
+
         if path.endswith(name):
             return path
-            
+
         return os.path.join(path, name)
 
     def _get_server_name(self) -> str:
@@ -46,7 +48,7 @@ class WindowsServerManager(FridaServerManager):
             return True
 
         server_path = self._get_full_server_path()
-        
+
         self.log(f"Starting frida-server at: {server_path}")
         try:
             # Start frida-server as a background process
@@ -77,7 +79,7 @@ class WindowsServerManager(FridaServerManager):
             # Get all processes once for a more flexible check
             result = subprocess.run(["tasklist"], capture_output=True, text=True)
             output = result.stdout.lower()
-            
+
             # Patterns to check
             patterns = ["frida-server.exe", "frida-server", "frida_server.exe", "frida_server"]
             if self.config.server_name:
@@ -85,14 +87,14 @@ class WindowsServerManager(FridaServerManager):
                 patterns.append(config_name)
                 if not config_name.endswith(".exe"):
                     patterns.append(f"{config_name}.exe")
-            
+
             # Find any match
             found_name = None
             for p in patterns:
                 if p in output:
                     found_name = p
                     break
-            
+
             is_running = found_name is not None
             if not silent:
                 if is_running:

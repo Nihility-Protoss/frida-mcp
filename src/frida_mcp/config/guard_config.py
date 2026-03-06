@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any
 from .default_config import FridaConfig
 
+
 def guard_os(expected: str, config: FridaConfig, action: str) -> Optional[Dict[str, Any]]:
     current = getattr(config, "os", None)
     if current and current != expected:

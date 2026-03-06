@@ -18,7 +18,7 @@ class BaseInjector(ABC):
     修正的BaseInjector类，符合指定的抽象方法签名
     device信息在初始化时传入，messages_buffer必须传入
     """
-    
+
     def __init__(self, device: frida.core.Device, messages_buffer: MessageLog):
         """
         初始化注入器
@@ -35,37 +35,38 @@ class BaseInjector(ABC):
         self.script_manager: Optional[
             Union[ScriptManager | AndroidScriptManager | WindowsScriptManager]
         ] = None
-        self.needs_resume:bool = False
+        self.needs_resume: bool = False
         self.running_script: Optional[frida.core.Script] = None
-    
+
     def __str__(self):
         return f"{self.__class__.__name__}-{self.current_target}-{self.current_pid}"
-    
+
     def _log(self, text: str) -> None:
         """记录日志消息"""
         message = f"[{self.__class__.__name__}] {text}"
         self.messages_buffer.append(message)
         print(message)
-    
+
     def _bind_session_events(self, session: frida.core.Session) -> None:
         """绑定session事件"""
+
         def on_detached(reason):
             self._log(f"Session detached: {reason}")
             self.session = None
-        
+
         def on_message(message, data):
             if message['type'] == 'send':
                 self._log(f"Script message: {message['payload']}")
             elif message['type'] == 'error':
                 self._log(f"Script error: {message['description']}")
-        
+
         session.on('detached', on_detached)
         session.on('message', on_message)
-    
+
     def is_connected(self) -> bool:
         """检查是否已连接"""
         return self.session is not None
-    
+
     def get_session_info(self) -> Dict[str, Any]:
         """
         获取当前会话信息
@@ -95,7 +96,7 @@ class BaseInjector(ABC):
     def get_script_manager(self) -> ScriptManager:
         return self.script_manager
 
-    def inject_script(self, script_manager:ScriptManager = None) -> Dict[str, Any]:
+    def inject_script(self, script_manager: ScriptManager = None) -> Dict[str, Any]:
         """
         使用 self.ScriptManager 将脚本注入到当前session
 
@@ -156,7 +157,7 @@ class BaseInjector(ABC):
             self._log(f"[{script_name}] {message['payload']}")
         elif message['type'] == 'error':
             self._log(f"[{script_name}] ERROR: {message['description']}")
-    
+
     @abstractmethod
     async def attach(self, target: str) -> Dict[str, Any]:
         """
@@ -171,7 +172,7 @@ class BaseInjector(ABC):
                 data: 附加结果信息
         """
         pass
-    
+
     @abstractmethod
     async def spawn(self, target: str) -> Dict[str, Any]:
         """
@@ -186,7 +187,7 @@ class BaseInjector(ABC):
                 data: 启动结果信息
         """
         pass
-    
+
     def detach(self) -> Dict[str, Any]:
         """
         断开连接
@@ -202,10 +203,10 @@ class BaseInjector(ABC):
                 self.session = None
                 self.current_target = None
                 self.current_pid = None
-                
+
                 return {'error': None, 'data': {'message': 'Successfully detached'}}
             else:
                 return {'error': 'No active session to detach', 'data': None}
-                
+
         except Exception as e:
             return {'error': str(e), 'data': None}

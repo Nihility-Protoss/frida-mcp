@@ -123,8 +123,13 @@ def _check_platform_environment(platform: str) -> Dict[str, Any]:
     return {'error': None, 'data': None}
 
 
-def _load_platform_script(platform: str, load_method_name: str, load_func, run_script_bool: bool = True, **kwargs) -> \
-        Dict[str, Any]:
+def _load_platform_script(
+        platform: str,
+        load_method_name: str,
+        load_func,
+        run_script_bool: bool = True,
+        **kwargs
+) -> Dict[str, Any]:
     """
     通用平台脚本加载和注入函数
     
@@ -1137,6 +1142,7 @@ def android_load_hook_net_libssl(
         injector.script_manager.load_hook_net_libssl,
         run_script_bool
     )
+
 
 @mcp.tool()
 def android_load_hook_clone(

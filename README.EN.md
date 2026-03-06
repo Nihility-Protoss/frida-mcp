@@ -7,6 +7,11 @@ This project's source code and design are inspired by the following excellent op
 - [zhizhuodemao/frida-mcp](https://github.com/zhizhuodemao/frida-mcp): Provides the foundation for Android dynamic analysis and Frida management logic.
 - [dnakov/frida-mcp](https://github.com/dnakov/frida-mcp): Provides a reference for the standard implementation using the MCP Python SDK.
 
+Some js files are from the following articles:
+- [scripts/android-js/anti_libDexHelper.so.js](https://bbs.kanxue.com/thread-289545.htm) [Original] Bypassing new version Frida detection in certain reinforcement
+- [scripts/android-js/hook_clone.js](https://bbs.kanxue.com/thread-289404.htm) [Original] Analysis of certain ventilation control parameters & Frida bypass (Part 1)
+- [scripts/android-js/hook_net_libssl.so.js](https://bbs.kanxue.com/thread-289085.htm) Frida intercepting http/https requests
+
 ## Core Features
 
 ### 1. Device and Process Management
@@ -63,30 +68,29 @@ By default, the server starts at `127.0.0.1:8032`.
 
 ### Device and Application Tools
 - `enumerate_devices`: List all connected devices (id/name/type).
-- `get_device(device_id)`: Get a device by ID.
+- `get_device`: Get specified device information.
 - `get_usb_device`: Get the current USB device information.
 - `get_local_device`: Get the local device information (Windows).
-- `list_applications(device_id?)`: List installed applications, including `identifier/name/pid?`.
-- `get_frontmost_application(device_id)`: Get the current frontmost application.
+- `list_applications`: List installed applications, including `identifier/name/pid?`.
+- `get_frontmost_application`: Get the current frontmost application.
 
 ### Process Management
-- `enumerate_processes(device_id?)`: List processes on a device (if not specified: Windows uses local device, others use USB).
-- `get_process_by_name(name, device_id?)`: Fuzzy-match a process by name (`found`, `pid`, `name`).
-- `resume_process(pid, device_id?)`: Resume a suspended process.
-- `kill_process(pid, device_id?)`: Terminate a running process.
+- `enumerate_processes`: List processes running on the device (when not specified: Windows uses local device, others use USB).
+- `get_process_by_name`: Fuzzy-match a process by name (returns `found`, `pid`, `name`).
+- `resume_process`: Resume a suspended process.
+- `kill_process`: Terminate a running process.
 
 ### Process Operations & Injection
-- `attach(target, device_id?, initial_script?, script_file_path?, output_file?)`: Attach to a running process (PID/package). Inject JS either as string or absolute `.js` path and optionally save logs to a local file.
-- `spawn(package_name, device_id?, initial_script?, script_file_path?, output_file?)`: Launch an app in suspended state and inject, then use `resume_process` to continue.
+- `attach`: Attach to a running process (PID/package name).
+- `spawn`: Launch an application (suspended state) and inject, will automatically resume when inject and run.
 
 ### Log Management
-- `get_messages(max_messages=100)`: Get a snapshot of the global Hook/Log buffer.
-- `get_new_messages()`: Get all log data between the last output and now.
+- `get_messages`: Get a snapshot of the global Hook/Log buffer.
+- `get_new_messages`: Get all log data between the last output and now.
 
 ### Session Management
-- `injector_init`: Initialize the injector and establish connection with the device.
-- `get_session_info`: Get information about the current active session.
 - `detach`: Disconnect the current session.
+- `get_session_info`: Get information about the current active session.
 
 ### Script Management
 - `get_script_list`: Get a list of all available built-in script filenames under the current injector.
@@ -98,7 +102,7 @@ By default, the server starts at `127.0.0.1:8032`.
 ### Android-Specific Script Tools
 - `android_load_script_anti_DexHelper_hook_clone`: Load Android platform anti-DexHelper detection script (hook clone).
 - `android_load_script_anti_DexHelper_hook_pthread`: Load Android platform anti-DexHelper detection script (hook pthread).
-- `android_load_script_anti_DexHelper`: Load Android platform anti-DexHelper detection script (nop function).
+- `android_load_script_anti_DexHelper`: Load Android platform anti-DexHelper detection script (nop key threads).
 - `android_load_hook_net_libssl`: Load Android platform network library SSL hook script.
 - `android_load_hook_clone`: Load Android platform clone system call hook script.
 - `android_load_hook_activity`: Load Android platform Activity lifecycle hook script.

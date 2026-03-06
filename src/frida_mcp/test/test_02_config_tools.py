@@ -14,16 +14,17 @@ except ImportError:
 # Frida MCP server connection settings
 DEFAULT_URL = "http://192.168.40.129:8032/mcp"
 
+
 async def test_config_tools(url: str = DEFAULT_URL):
     """
     测试 Frida MCP 的配置管理工具: config_get, config_set, config_save, config_init
     """
     print(f"[*] Testing configuration tools at: {url}")
-    
+
     try:
         async with Client(url) as client:
             print("[+] Connection established.")
-            
+
             # --- 1. Test config_get ---
             print("\n[1] Testing 'config_get'...")
             result = await client.call_tool("config_get")
@@ -40,7 +41,7 @@ async def test_config_tools(url: str = DEFAULT_URL):
             set_data = json.loads(set_result.content[0].text)
             print(f"    - Status: {set_data.get('status')}")
             print(f"    - Updated device_id: {set_data.get('active_config', {}).get('device_id')}")
-            
+
             if set_data.get('active_config', {}).get('device_id') == test_device_id:
                 print("    [✔] config_set successfully updated memory.")
             else:
@@ -52,7 +53,7 @@ async def test_config_tools(url: str = DEFAULT_URL):
             save_data = json.loads(save_result.content[0].text)
             print(f"    - Status: {save_data.get('status')}")
             print(f"    - Saved to: {save_data.get('path')}")
-            
+
             if save_data.get('status') == "success":
                 print("    [✔] config_save reported success.")
             else:
@@ -66,7 +67,7 @@ async def test_config_tools(url: str = DEFAULT_URL):
             init_data = json.loads(init_result.content[0].text)
             print(f"    - Status: {init_data.get('status')}")
             print(f"    - New Project Config Path: {init_data.get('project_config_path')}")
-            
+
             if init_data.get('status') == "success" and init_data.get('project_config_path') == test_init_path:
                 print("    [✔] config_init successfully initialized new project path.")
                 # 清理生成的临时文件
@@ -81,12 +82,13 @@ async def test_config_tools(url: str = DEFAULT_URL):
             await client.call_tool("config_set", arguments={"device_id": original_config.get("device_id")})
             print(f"    - Restored device_id to: {original_config.get('device_id')}")
 
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print("CONFIGURATION TOOLS TEST COMPLETE")
-            print("="*50)
-            
+            print("=" * 50)
+
     except Exception as e:
         print(f"[-] Test FAILED: {e}")
+
 
 if __name__ == "__main__":
     target_url = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
