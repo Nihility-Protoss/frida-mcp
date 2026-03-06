@@ -84,8 +84,34 @@ python src/frida_mcp/frida_mcp.py
 - `attach(target, device_id?, initial_script?, script_file_path?, output_file?)`: 附加到运行中的进程（PID/包名），可注入 JS（字符串或绝对路径 .js），可保存日志到本地文件。
 - `spawn(package_name, device_id?, initial_script?, script_file_path?, output_file?)`: 拉起应用（挂起态）并注入，随后可由 `resume_process` 恢复。
 
-### 日志
+### 日志管理
 - `get_messages(max_messages=100)`: 获取全局 Hook/Log 文本缓冲快照。
+- `get_new_messages()`: 获取上次输出到此刻之间的所有 log 数据。
+
+### 会话管理
+- `injector_init`: 初始化注入器，建立与设备的连接。
+- `get_session_info`: 获取当前活跃的session信息。
+- `detach`: 断开当前会话连接。
+
+### 脚本管理
+- `get_script_list`: 获得当前 injector 下所有可用的内置 script 文件名列表。
+- `get_script_now`: 获得当前 injector 中已经构建好的 script。
+- `reset_script_now`: 重置当前 injector 中的 script。
+- `inject_user_script_run`: 注入并运行用户自定义脚本（字符串形式）。
+- `inject_user_script_run_all`: 注入并运行用户自定义脚本（文件路径形式）。
+
+### Android 专用脚本工具
+- `android_load_script_anti_DexHelper_hook_clone`: 加载Android平台的反DexHelper检测脚本（hook clone）。
+- `android_load_script_anti_DexHelper_hook_pthread`: 加载Android平台的反DexHelper检测脚本（hook pthread）。
+- `android_load_script_anti_DexHelper`: 加载Android平台的反DexHelper检测脚本（nop关键线程）。
+- `android_load_hook_net_libssl`: 加载Android平台的网络库SSL Hook脚本。
+- `android_load_hook_clone`: 加载Android平台的clone系统调用Hook脚本。
+- `android_load_hook_activity`: 加载Android平台的Activity生命周期Hook脚本。
+
+### Windows 专用脚本工具
+- `windows_load_monitor_api`: 加载 Windows 平台的 API 监控脚本。
+- `windows_load_monitor_registry`: 加载 Windows 平台的注册表监控脚本。
+- `windows_load_monitor_file`: 加载Windows平台的文件监控脚本。
 
 ### 资源 (MCP Resources)
 - `frida://version`: 返回当前 Frida 版本字符串。

@@ -79,8 +79,34 @@ By default, the server starts at `127.0.0.1:8032`.
 - `attach(target, device_id?, initial_script?, script_file_path?, output_file?)`: Attach to a running process (PID/package). Inject JS either as string or absolute `.js` path and optionally save logs to a local file.
 - `spawn(package_name, device_id?, initial_script?, script_file_path?, output_file?)`: Launch an app in suspended state and inject, then use `resume_process` to continue.
 
-### Logging
+### Log Management
 - `get_messages(max_messages=100)`: Get a snapshot of the global Hook/Log buffer.
+- `get_new_messages()`: Get all log data between the last output and now.
+
+### Session Management
+- `injector_init`: Initialize the injector and establish connection with the device.
+- `get_session_info`: Get information about the current active session.
+- `detach`: Disconnect the current session.
+
+### Script Management
+- `get_script_list`: Get a list of all available built-in script filenames under the current injector.
+- `get_script_now`: Get the currently built script in the injector.
+- `reset_script_now`: Reset the script in the current injector.
+- `inject_user_script_run`: Inject and run user-defined scripts (string format).
+- `inject_user_script_run_all`: Inject and run user-defined scripts (file path format).
+
+### Android-Specific Script Tools
+- `android_load_script_anti_DexHelper_hook_clone`: Load Android platform anti-DexHelper detection script (hook clone).
+- `android_load_script_anti_DexHelper_hook_pthread`: Load Android platform anti-DexHelper detection script (hook pthread).
+- `android_load_script_anti_DexHelper`: Load Android platform anti-DexHelper detection script (nop function).
+- `android_load_hook_net_libssl`: Load Android platform network library SSL hook script.
+- `android_load_hook_clone`: Load Android platform clone system call hook script.
+- `android_load_hook_activity`: Load Android platform Activity lifecycle hook script.
+
+### Windows-Specific Script Tools
+- `windows_load_monitor_api`: Load Windows platform API monitoring script.
+- `windows_load_monitor_registry`: Load Windows platform registry monitoring script.
+- `windows_load_monitor_file`: Load Windows platform file monitoring script.
 
 ### Resources (MCP Resources)
 - `frida://version`: Return the current Frida version string.
