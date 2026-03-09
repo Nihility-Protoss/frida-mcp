@@ -1,8 +1,6 @@
-import frida
-import os
 import re
-from typing import Optional, Dict, Any, Deque, List, Union
 from pathlib import Path
+from typing import Optional, Dict, Any, List
 
 
 def init_script() -> str:
@@ -178,7 +176,7 @@ class ScriptBuilder:
         Args:
             base_script: 基础脚本，如果为None则使用默认的init_script
         """
-        self.base_script = init_script() + base_script
+        self.base_script = init_script() + (base_script if base_script else "")
         self.sections = []
 
     def add_section(self, name: str, content: str) -> 'ScriptBuilder':
