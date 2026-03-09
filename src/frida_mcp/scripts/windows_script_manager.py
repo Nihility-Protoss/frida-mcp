@@ -44,11 +44,25 @@ class WindowsScriptManager(ScriptManager):
             api_name=api_name
         )
 
-    def load_monitor_registry(self, registry_path: str) -> Dict[str, Any]:
-        """加载注册表监控脚本"""
-        this_script_filename = "monitor_registry.js"
+    def load_monitor_registry(
+            self, api_name:str, registry_path: str = ""
+    ) -> Dict[str, Any]:
+        """
+        加载注册表监控脚本
+
+        Args:
+            api_name: 要监控的注册表API名称 (如 RegOpenKeyExW, RegSetValueExW, RegQueryValueExW 等)
+            registry_path: 要监控的注册表路径关键字 可以为空
+
+        Returns:
+
+        """
+        this_script_base_name = "monitor_registry.js"
+        self.load_script_from_file(this_script_base_name)
+        this_script_filename = "monitor_registry_api.js"
         return self.load_script_from_file(
             this_script_filename,
+            api_name=api_name,
             registry_path=registry_path
         )
 

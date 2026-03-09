@@ -1055,13 +1055,14 @@ def reset_script_now() -> Dict[str, Any]:
         "message": reset_result["data"] if reset_result["error"] is None else reset_result["error"]
     }
 
+
 # MCP Tool Util Script
 
 @mcp.tool()
 def util_load_module_enumerateExports(
-        module_name:str,
+        module_name: str,
         run_script_bool: bool = False,
-)->Dict[str, Any]:
+) -> Dict[str, Any]:
     """
     枚举模块中所有的 Export 函数，Android 和 Windows 环境下都可使用
     Args:
@@ -1078,6 +1079,7 @@ def util_load_module_enumerateExports(
         run_script_bool,
         module_name=module_name
     )
+
 
 # MCP Tool Android Script
 
@@ -1252,24 +1254,50 @@ def windows_load_monitor_api(
 
 @mcp.tool()
 def windows_load_monitor_registry(
-        registry_path: str,
+        api_name: str,
+        registry_path: str = "",
         run_script_bool: bool = True
 ) -> Dict[str, Any]:
     """
     加载Windows平台的注册表监控脚本
 
     Args:
-        registry_path: 要监控的注册表路径
+        api_name: 注册表API名称，必须是以下之一：
+            RegOpenKeyExW, RegOpenKeyExA, RegCreateKeyExW, RegCreateKeyExA,
+            RegSetValueExW, RegSetValueExA, RegQueryValueExW, RegQueryValueExA,
+            RegDeleteValueW, RegDeleteValueA, RegDeleteKeyW, RegDeleteKeyA,
+            RegEnumKeyExW, RegEnumKeyExA, RegEnumValueW, RegEnumValueA
+        registry_path: 要监控的注册表路径（可以为空，监控所有路径）
         run_script_bool: 若为True则在加载后立即执行脚本
 
     Returns:
         {status, message}
     """
+    # 定义有效的注册表API名称
+    VALID_REGISTRY_APIS = {
+        "RegOpenKeyExW", "RegOpenKeyExA",
+        "RegCreateKeyExW", "RegCreateKeyExA",
+        "RegSetValueExW", "RegSetValueExA",
+        "RegQueryValueExW", "RegQueryValueExA",
+        "RegDeleteValueW", "RegDeleteValueA",
+        "RegDeleteKeyW", "RegDeleteKeyA",
+        "RegEnumKeyExW", "RegEnumKeyExA",
+        "RegEnumValueW", "RegEnumValueA"
+    }
+
+    # 验证api_name参数
+    if api_name not in VALID_REGISTRY_APIS:
+        return {
+            "status": "error",
+            "message": f"UseLess Api Name: {api_name}, must in list[{', '.join(sorted(VALID_REGISTRY_APIS))}]"
+        }
+
     return _load_platform_script(
         "Windows",
         "load_monitor_registry",
         injector.script_manager.load_monitor_registry,
         run_script_bool,
+        api_name=api_name,
         registry_path=registry_path
     )
 
