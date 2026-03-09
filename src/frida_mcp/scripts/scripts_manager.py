@@ -7,43 +7,42 @@ from pathlib import Path
 
 def init_script() -> str:
     return f"""
-    // Smart object to string function (prefers Gson)
-    function safeStringify(obj) {{
-        if (obj === null) return 'null';
-        if (obj === undefined) return 'undefined';
+// Smart object to string function (prefers Gson)
+function safeStringify(obj) {{
+    if (obj === null) return 'null';
+    if (obj === undefined) return 'undefined';
 
-        // Basic types
-        if (typeof obj === 'string') return obj;
-        if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+    // Basic types
+    if (typeof obj === 'string') return obj;
+    if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
 
-        // Objects
+    // Objects
+    try {{
+        var Gson = Java.use('com.google.gson.Gson');
+        var gson = Gson.$new();
+        return gson.toJson(obj);
+    }} catch (gsonError) {{
         try {{
-            var Gson = Java.use('com.google.gson.Gson');
-            var gson = Gson.$new();
-            return gson.toJson(obj);
-        }} catch (gsonError) {{
+            return obj.toString();
+        }} catch (toStringError) {{
             try {{
-                return obj.toString();
-            }} catch (toStringError) {{
-                try {{
-                    return '[' + (obj.$className || 'Unknown') + ' Object]';
-                }} catch (classError) {{
-                    return '[Unparseable Object]';
-                }}
+                return '[' + (obj.$className || 'Unknown') + ' Object]';
+            }} catch (classError) {{
+                return '[Unparseable Object]';
             }}
         }}
     }}
+}}
 
-    // Redirect console.log to send()
-    console.log = function() {{
-        var message = Array.prototype.slice.call(arguments).map(function(arg) {{
-            return safeStringify(arg);
-        }}).join(' ');
-        send({{'type': 'log', 'message': message}});
-    }};
+// Redirect console.log to send()
+console.log = function() {{
+    var message = Array.prototype.slice.call(arguments).map(function(arg) {{
+        return safeStringify(arg);
+    }}).join(' ');
+    send({{'type': 'log', 'message': message}});
+}};
 
-    // User script
-    """
+// User script\n"""
 
 
 class JSFileLoader:
@@ -179,7 +178,7 @@ class ScriptBuilder:
         Args:
             base_script: 基础脚本，如果为None则使用默认的init_script
         """
-        self.base_script = base_script or init_script()
+        self.base_script = init_script() + base_script
         self.sections = []
 
     def add_section(self, name: str, content: str) -> 'ScriptBuilder':
@@ -259,7 +258,6 @@ class ScriptManager:
 
             # 重新构建脚本
             self.name.append(filename)
-            self.builder = ScriptBuilder()
             self.builder.add_js_file(filename, content)
             self.open_script = self.builder.build()
 
@@ -280,8 +278,6 @@ class ScriptManager:
                 data: 构建完成的脚本
         """
         try:
-            self.builder = ScriptBuilder()
-
             for filename in filenames:
                 result = self.file_loader.load_js_file(filename)
                 if result['error']:
@@ -329,13 +325,10 @@ class ScriptManager:
                 error: 错误信息，成功时为None
                 data: 重置后的脚本
         """
-        try:
-            self.name = []
-            self.builder = ScriptBuilder()
-            self.open_script = self.builder.build()
-            return {'error': None, 'data': self.open_script}
-        except Exception as e:
-            return {'error': str(e), 'data': None}
+        self.name = []
+        self.builder = ScriptBuilder()
+        self.open_script = self.builder.build()
+        return {'error': None, 'data': self.open_script}
 
     def get_available_scripts(self) -> Dict[str, Any]:
         """获取可用的脚本文件列表

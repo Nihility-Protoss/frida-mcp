@@ -25,7 +25,15 @@ class WindowsScriptManager(ScriptManager):
         super().__init__(scripts_dir)
         self.file_loader = WindowsJSFileLoader(scripts_dir)
         self.builder = ScriptBuilder()
+        self.load_script_from_file("windows_base_utils.js")
         self.open_script = self.builder.build()
+
+    def reset_script(self) -> Dict[str, Any]:
+        self.name = []
+        self.builder = ScriptBuilder()
+        self.load_script_from_file("windows_base_utils.js")
+        self.open_script = self.builder.build()
+        return {'error': None, 'data': self.open_script}
 
     def load_monitor_api(self, module_name: str, api_name: str) -> Dict[str, Any]:
         """加载API监控脚本"""

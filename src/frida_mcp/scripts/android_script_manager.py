@@ -25,7 +25,15 @@ class AndroidScriptManager(ScriptManager):
         super().__init__(scripts_dir)
         self.file_loader = AndroidJSFileLoader(scripts_dir)
         self.builder = ScriptBuilder()
+        self.load_script_from_file("android_base_utils.js")
         self.open_script = self.builder.build()
+
+    def reset_script(self) -> Dict[str, Any]:
+        self.name = []
+        self.builder = ScriptBuilder()
+        self.load_script_from_file("android_base_utils.js")
+        self.open_script = self.builder.build()
+        return {'error': None, 'data': self.open_script}
 
     def load_frida_detection_bypass(self) -> Dict[str, Any]:
         """加载Frida检测绕过脚本"""
