@@ -100,7 +100,7 @@ async def test_get_script_now(client: Client) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 
-def fast_result(result:CallToolResult) -> Dict[str, Any]:
+def fast_result(result: CallToolResult) -> Dict[str, Any]:
     if hasattr(result, 'content') and result.content:
         reset_result = json.loads(result.content[0].text)
         if reset_result.get("message"):
@@ -352,8 +352,10 @@ console.log("[TEST] Script loaded successfully");
                 print("\n[Test Group 2] Android-Specific APIs")
                 print("-" * 50)
 
-                android_load_script_anti_DexHelper_hook_clone_result = await test_android_load_script_anti_DexHelper_hook_clone(client)
-                android_load_script_anti_DexHelper_hook_pthread_result = await test_android_load_script_anti_DexHelper_hook_pthread(client)
+                android_load_script_anti_DexHelper_hook_clone_result = await test_android_load_script_anti_DexHelper_hook_clone(
+                    client)
+                android_load_script_anti_DexHelper_hook_pthread_result = await test_android_load_script_anti_DexHelper_hook_pthread(
+                    client)
                 android_load_script_anti_DexHelper_result = await test_android_load_script_anti_DexHelper(client)
                 android_load_hook_net_libssl_result = await test_android_load_hook_net_libssl(client)
                 android_load_hook_clone_result = await test_android_load_hook_clone(client)
@@ -382,22 +384,32 @@ console.log("[TEST] Script loaded successfully");
             print(f"- get_script_now: {'✓' if get_script_now_result['status'] == 'success' else '✗'}")
             print(f"- inject_user_script_run: {'✓' if inject_user_script_run_result['status'] == 'success' else '✗'}")
             print(f"- reset_script_now: {'✓' if reset_script_now_result['status'] == 'success' else '✗'}")
-            print(f"- inject_user_script_run_all: {'✓' if inject_user_script_run_all_result['status'] == 'success' else '✗'}")
+            print(
+                f"- inject_user_script_run_all: {'✓' if inject_user_script_run_all_result['status'] == 'success' else '✗'}")
 
             if android_test:
                 print("\nAndroid-Specific:")
-                print(f"- android_load_script_anti_DexHelper_hook_clone: {'✓' if android_load_script_anti_DexHelper_hook_clone_result['status'] == 'success' else '✗'}")
-                print(f"- android_load_script_anti_DexHelper_hook_pthread: {'✓' if android_load_script_anti_DexHelper_hook_pthread_result['status'] == 'success' else '✗'}")
-                print(f"- android_load_script_anti_DexHelper: {'✓' if android_load_script_anti_DexHelper_result['status'] == 'success' else '✗'}")
-                print(f"- android_load_hook_net_libssl: {'✓' if android_load_hook_net_libssl_result['status'] == 'success' else '✗'}")
-                print(f"- android_load_hook_clone: {'✓' if android_load_hook_clone_result['status'] == 'success' else '✗'}")
-                print(f"- android_load_hook_activity: {'✓' if android_load_hook_activity_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- android_load_script_anti_DexHelper_hook_clone: {'✓' if android_load_script_anti_DexHelper_hook_clone_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- android_load_script_anti_DexHelper_hook_pthread: {'✓' if android_load_script_anti_DexHelper_hook_pthread_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- android_load_script_anti_DexHelper: {'✓' if android_load_script_anti_DexHelper_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- android_load_hook_net_libssl: {'✓' if android_load_hook_net_libssl_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- android_load_hook_clone: {'✓' if android_load_hook_clone_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- android_load_hook_activity: {'✓' if android_load_hook_activity_result['status'] == 'success' else '✗'}")
 
             if windows_test:
                 print("\nWindows-Specific:")
-                print(f"- windows_load_monitor_api: {'✓' if windows_load_monitor_api_result['status'] == 'success' else '✗'}")
-                print(f"- windows_load_monitor_registry: {'✓' if windows_load_monitor_registry_result['status'] == 'success' else '✗'}")
-                print(f"- windows_load_monitor_file: {'✓' if windows_load_monitor_file_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- windows_load_monitor_api: {'✓' if windows_load_monitor_api_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- windows_load_monitor_registry: {'✓' if windows_load_monitor_registry_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- windows_load_monitor_file: {'✓' if windows_load_monitor_file_result['status'] == 'success' else '✗'}")
 
     except Exception as e:
         print(f"[-] Failed to connect to MCP server: {e}")

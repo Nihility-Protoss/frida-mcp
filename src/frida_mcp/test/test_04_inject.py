@@ -325,17 +325,21 @@ console.log("[TEST] Script injected successfully");
             print("Test Summary:")
             if first_test_mode == "spawn":
                 print(f"- spawn: {'✓' if spawn_result['status'] == 'success' else '✗'}")
-                print(f"- inject_user_script_run_all (after spawn): {'✓' if inject_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- inject_user_script_run_all (after spawn): {'✓' if inject_result['status'] == 'success' else '✗'}")
                 print(f"- detach (after spawn): {'✓' if detach_result['status'] == 'success' else '✗'}")
                 print(f"- attach: {'✓' if attach_result['status'] == 'success' else '✗'}")
-                print(f"- inject_user_script_run_all (after attach): {'✓' if inject_result_attach['status'] == 'success' else '✗'}")
+                print(
+                    f"- inject_user_script_run_all (after attach): {'✓' if inject_result_attach['status'] == 'success' else '✗'}")
                 print(f"- detach (after attach): {'✓' if detach_result_attach['status'] == 'success' else '✗'}")
             else:  # first_test_mode == "attach"
                 print(f"- attach: {'✓' if attach_result['status'] == 'success' else '✗'}")
-                print(f"- inject_user_script_run_all (after attach): {'✓' if inject_result_attach['status'] == 'success' else '✗'}")
+                print(
+                    f"- inject_user_script_run_all (after attach): {'✓' if inject_result_attach['status'] == 'success' else '✗'}")
                 print(f"- detach (after attach): {'✓' if detach_result_attach['status'] == 'success' else '✗'}")
                 print(f"- spawn: {'✓' if spawn_result['status'] == 'success' else '✗'}")
-                print(f"- inject_user_script_run_all (after spawn): {'✓' if inject_result['status'] == 'success' else '✗'}")
+                print(
+                    f"- inject_user_script_run_all (after spawn): {'✓' if inject_result['status'] == 'success' else '✗'}")
                 print(f"- detach (after spawn): {'✓' if detach_result['status'] == 'success' else '✗'}")
 
     except Exception as e:
