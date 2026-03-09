@@ -30,6 +30,8 @@ import sys
 from typing import Dict, Any
 from pathlib import Path
 
+from mcp.types import CallToolResult
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
@@ -42,7 +44,8 @@ except ImportError:
 DEFAULT_URL = "http://192.168.40.129:8032/mcp"
 
 # 全局变量，由用户输入
-target_package: str = "notepad.exe"  # 目标进程包名或 PID
+target = "notepad.exe"
+target_package: str = r"C:\Windows\System32\notepad.exe"
 
 # Android 测试参数（可选）
 android_test: bool = False  # 是否测试 Android API
@@ -86,7 +89,7 @@ async def test_get_script_now(client: Client) -> Dict[str, Any]:
 
         if hasattr(result, 'content') and result.content:
             script_now = json.loads(result.content[0].text)
-            print(f"[+] Current script: {script_now}")
+            print(f"[+] Current script: {script_now['message']}")
             return {"status": "success", "script": script_now}
         else:
             print(f"[!] Unexpected response: {result}")
@@ -97,19 +100,26 @@ async def test_get_script_now(client: Client) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 
+def fast_result(result:CallToolResult) -> Dict[str, Any]:
+    if hasattr(result, 'content') and result.content:
+        reset_result = json.loads(result.content[0].text)
+        if reset_result.get("message"):
+            print(f"[+] Reset result: {reset_result['message']}")
+        else:
+            print(f"[+] Reset result: {reset_result}")
+        return {"status": "success", "message": reset_result}
+    else:
+        print(f"[!] Unexpected response: {result}")
+        return {"status": "error", "message": "Invalid response format"}
+
+
 async def test_reset_script_now(client: Client) -> Dict[str, Any]:
     """测试重置当前脚本"""
     print(f"[*] Testing reset_script_now...")
     try:
         result = await client.call_tool("reset_script_now")
 
-        if hasattr(result, 'content') and result.content:
-            reset_result = json.loads(result.content[0].text)
-            print(f"[+] Reset result: {reset_result}")
-            return {"status": "success", "message": reset_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] reset_script_now failed: {e}")
@@ -124,13 +134,7 @@ async def test_inject_user_script_run(client: Client, script_content: str) -> Di
             "inject_user_script_run",
             arguments={"script_content": script_content})
 
-        if hasattr(result, 'content') and result.content:
-            inject_result = json.loads(result.content[0].text)
-            print(f"[+] Inject result: {inject_result}")
-            return {"status": "success", "message": inject_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] inject_user_script_run failed: {e}")
@@ -145,17 +149,14 @@ async def test_inject_user_script_run_all(client: Client, script_content: str) -
             "inject_user_script_run_all",
             arguments={"script_content": script_content})
 
-        if hasattr(result, 'content') and result.content:
-            inject_result = json.loads(result.content[0].text)
-            print(f"[+] Inject result: {inject_result}")
-            return {"status": "success", "message": inject_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] inject_user_script_run_all failed: {e}")
         return {"status": "error", "message": str(e)}
+
+
+from test_04_inject import test_get_new_messages, test_get_messages
 
 
 # Android 专用 API 测试函数
@@ -167,13 +168,7 @@ async def test_android_load_script_anti_DexHelper_hook_clone(client: Client) -> 
         result = await client.call_tool(
             "android_load_script_anti_DexHelper_hook_clone")
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] android_load_script_anti_DexHelper_hook_clone failed: {e}")
@@ -187,13 +182,7 @@ async def test_android_load_script_anti_DexHelper_hook_pthread(client: Client) -
         result = await client.call_tool(
             "android_load_script_anti_DexHelper_hook_pthread")
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] android_load_script_anti_DexHelper_hook_pthread failed: {e}")
@@ -208,13 +197,7 @@ async def test_android_load_script_anti_DexHelper(client: Client) -> Dict[str, A
             "android_load_script_anti_DexHelper",
             arguments={"hook_addr_list": android_hook_addr_list})
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] android_load_script_anti_DexHelper failed: {e}")
@@ -227,13 +210,7 @@ async def test_android_load_hook_net_libssl(client: Client) -> Dict[str, Any]:
     try:
         result = await client.call_tool("android_load_hook_net_libssl")
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] android_load_hook_net_libssl failed: {e}")
@@ -248,13 +225,7 @@ async def test_android_load_hook_clone(client: Client) -> Dict[str, Any]:
             "android_load_hook_clone",
             arguments={"anti_so_name_tag": android_so_name})
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] android_load_hook_clone failed: {e}")
@@ -272,13 +243,7 @@ async def test_android_load_hook_activity(client: Client) -> Dict[str, Any]:
                 "activity_name": android_activity_name
             })
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] android_load_hook_activity failed: {e}")
@@ -298,13 +263,7 @@ async def test_windows_load_monitor_api(client: Client) -> Dict[str, Any]:
                 "api_name": windows_api_name
             })
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] windows_load_monitor_api failed: {e}")
@@ -319,13 +278,7 @@ async def test_windows_load_monitor_registry(client: Client) -> Dict[str, Any]:
             "windows_load_monitor_registry",
             arguments={"registry_path": windows_registry_path})
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] windows_load_monitor_registry failed: {e}")
@@ -340,13 +293,7 @@ async def test_windows_load_monitor_file(client: Client) -> Dict[str, Any]:
             "windows_load_monitor_file",
             arguments={"file_path": windows_file_path})
 
-        if hasattr(result, 'content') and result.content:
-            load_result = json.loads(result.content[0].text)
-            print(f"[+] Load result: {load_result}")
-            return {"status": "success", "message": load_result}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
+        return fast_result(result)
 
     except Exception as e:
         print(f"[-] windows_load_monitor_file failed: {e}")
@@ -420,6 +367,12 @@ console.log("[TEST] Script loaded successfully");
                 windows_load_monitor_api_result = await test_windows_load_monitor_api(client)
                 windows_load_monitor_registry_result = await test_windows_load_monitor_registry(client)
                 windows_load_monitor_file_result = await test_windows_load_monitor_file(client)
+
+            # 获取消息
+            print("\n[Test 7] Get script now...")
+            get_script_now_result = await test_get_script_now(client)
+            print("\n[Test 8] Testing get_new_messages...")
+            get_new_messages_result = await test_get_new_messages(client)
 
             # 总结
             print("\n" + "=" * 50)

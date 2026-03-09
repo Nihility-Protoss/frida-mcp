@@ -45,23 +45,7 @@ class BaseInjector(ABC):
         """记录日志消息"""
         message = f"[{self.__class__.__name__}] {text}"
         self.messages_buffer.append(message)
-        print(message)
-
-    def _bind_session_events(self, session: frida.core.Session) -> None:
-        """绑定session事件"""
-
-        def on_detached(reason):
-            self._log(f"Session detached: {reason}")
-            self.session = None
-
-        def on_message(message, data):
-            if message['type'] == 'send':
-                self._log(f"Script message: {message['payload']}")
-            elif message['type'] == 'error':
-                self._log(f"Script error: {message['description']}")
-
-        session.on('detached', on_detached)
-        session.on('message', on_message)
+        # print(message)
 
     def is_connected(self) -> bool:
         """检查是否已连接"""
@@ -128,7 +112,12 @@ class BaseInjector(ABC):
             script_name = ",".join(script_manager.name)
 
             if self.running_script is not None:
-                self.running_script.unload()
+                try:
+                    self.running_script.unload()
+                except Exception as e:
+                    # 可能是原session已经detach，导致unload失败
+                    print(str(e))
+                    self.running_script = None
 
             # 创建并加载脚本
             script = self.session.create_script(script_content)
@@ -156,7 +145,7 @@ class BaseInjector(ABC):
         if message['type'] == 'send':
             self._log(f"[{script_name}] {message['payload']}")
         elif message['type'] == 'error':
-            self._log(f"[{script_name}] ERROR: {message['description']}")
+            self._log(f"[{script_name}] ERROR: {message['stack']}")
 
     @abstractmethod
     async def attach(self, target: str) -> Dict[str, Any]:

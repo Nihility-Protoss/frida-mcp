@@ -62,7 +62,6 @@ class WindowsInjector(BaseInjector):
 
             # 附加到进程
             self.session = device.attach(pid)
-            self._bind_session_events(self.session)
 
             self.current_target = process_name
             self.current_pid = pid
@@ -104,7 +103,6 @@ class WindowsInjector(BaseInjector):
             # 启动程序
             pid = device.spawn([target])  # Frida spawn expects a list of arguments
             self.session = device.attach(pid)
-            self._bind_session_events(self.session)
 
             self.current_target = target
             self.current_pid = pid

@@ -62,7 +62,6 @@ class AndroidInjector(BaseInjector):
 
             # 附加到进程
             self.session = device.attach(pid)
-            self._bind_session_events(self.session)
 
             self.current_target = package_name
             self.current_pid = pid
@@ -104,7 +103,6 @@ class AndroidInjector(BaseInjector):
             # 启动应用
             pid = device.spawn(target)
             self.session = device.attach(pid)
-            self._bind_session_events(self.session)
 
             self.current_target = target
             self.current_pid = pid

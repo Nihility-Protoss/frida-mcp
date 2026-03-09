@@ -38,8 +38,8 @@ async def test_frida_mcp_connection(url: str = DEFAULT_URL):
             version_resource = await client.read_resource("frida://version")
             print(f"[+] Frida Version (via resource): {version_resource}")
 
-            print("[*] Calling 'config_get' to verify active configuration...")
-            result = await client.call_tool("config_get")
+            print("[*] Calling 'frida://config' to verify active configuration...")
+            result = await client.read_resource("frida://config")
 
             # 解析并打印活跃配置
             if hasattr(result, 'content') and result.content:

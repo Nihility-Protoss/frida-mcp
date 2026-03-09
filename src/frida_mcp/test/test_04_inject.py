@@ -25,9 +25,9 @@ except ImportError:
 DEFAULT_URL = "http://192.168.40.129:8032/mcp"
 
 # 全局变量，由用户输入
-target_package: str = "notepad.exe"  # 目标进程包名或 PID
+target_package: str = r"C:\Windows\System32\notepad.exe"  # 目标进程包名或 PID
+target = "notepad.exe"
 first_test_mode: str = "spawn"  # 首先测试哪种模式: "spawn" 或 "attach"
-script_file_path: str = r"C:\path\to\your\test.js"  # 要注入的 JS 脚本文件绝对路径
 
 
 async def test_attach(client: Client, target: str) -> Dict[str, Any]:
@@ -165,13 +165,72 @@ async def test_detach(client: Client) -> Dict[str, Any]:
         return {"status": "error", "message": str(e)}
 
 
+async def test_get_messages(client: Client, max_messages: int = 100) -> Dict[str, Any]:
+    """测试获取消息缓冲区内容"""
+    print(f"[*] Testing get_messages (max_messages={max_messages})...")
+    try:
+        result = await client.call_tool(
+            "get_messages",
+            arguments={"max_messages": max_messages})
+
+        if hasattr(result, 'content') and result.content:
+            messages_result = json.loads(result.content[0].text)
+            print(f"[+] Get messages result: ")
+            for i in messages_result['messages']:
+                print(f"[+] {i}")
+
+            if messages_result.get('status') == 'success':
+                messages = messages_result.get('messages', [])
+                remaining = messages_result.get('remaining', 0)
+                print(f"[+] Retrieved {len(messages)} messages, {remaining} remaining")
+                return {"status": "success", "messages": messages, "remaining": remaining}
+            else:
+                print(f"[-] Failed to get messages: {messages_result.get('message', 'Unknown error')}")
+                return {"status": "error", "message": messages_result.get('message', 'Unknown error')}
+        else:
+            print(f"[!] Unexpected response: {result}")
+            return {"status": "error", "message": "Invalid response format"}
+
+    except Exception as e:
+        print(f"[-] get_messages failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+async def test_get_new_messages(client: Client) -> Dict[str, Any]:
+    """测试获取新消息（自上次输出后的所有log数据）"""
+    print(f"[*] Testing get_new_messages...")
+    try:
+        result = await client.call_tool("get_new_messages")
+
+        if hasattr(result, 'content') and result.content:
+            messages_result = json.loads(result.content[0].text)
+            print(f"[+] Get new messages result:")
+            for i in messages_result['messages']:
+                print(f"[+] {i}")
+
+            if messages_result.get('status') == 'success':
+                messages = messages_result.get('messages', [])
+                remaining = messages_result.get('remaining', 0)
+                print(f"[+] Retrieved {len(messages)} new messages, {remaining} remaining")
+                return {"status": "success", "messages": messages, "remaining": remaining}
+            else:
+                print(f"[-] Failed to get new messages: {messages_result.get('message', 'Unknown error')}")
+                return {"status": "error", "message": messages_result.get('message', 'Unknown error')}
+        else:
+            print(f"[!] Unexpected response: {result}")
+            return {"status": "error", "message": "Invalid response format"}
+
+    except Exception as e:
+        print(f"[-] get_new_messages failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 async def run_all_tests(url: str):
     """运行所有注入功能测试"""
     print(f"[*] Starting injection tests...")
     print(f"[*] MCP Server URL: {url}")
     print(f"[*] Target Package: {target_package}")
     print(f"[*] First Test Mode: {first_test_mode}")
-    print(f"[*] Script File Path: {script_file_path}")
     print("-" * 50)
 
     try:
@@ -203,7 +262,7 @@ console.log("[TEST] Script injected successfully");
                 # 重新连接并测试 4: Attach 模式（附加到已运行的进程）
                 print("\n[Test 4] Testing attach mode...")
                 print("[*] Ensure the target process is running before testing attach.")
-                attach_result = await test_attach(client, target_package)
+                attach_result = await test_attach(client, target)
 
                 # 再次获取会话信息
                 session_info_attach = await test_get_session_info(client)
@@ -220,7 +279,7 @@ console.log("[TEST] Script injected successfully");
                 # 测试 1: Attach 模式（附加到已运行的进程）
                 print("\n[Test 1] Testing attach mode...")
                 print("[*] Ensure the target process is running before testing attach.")
-                attach_result = await test_attach(client, target_package)
+                attach_result = await test_attach(client, target)
 
                 # 获取会话信息
                 session_info_attach = await test_get_session_info(client)
@@ -253,6 +312,13 @@ console.log("[TEST] Script injected successfully");
                 # 再次测试 Detach
                 print("\n[Test 6] Testing detach after spawn...")
                 detach_result = await test_detach(client)
+
+            # 获取消息
+            print("\n[Test 7] Testing get_new_messages...")
+            get_new_messages_result = await test_get_new_messages(client)
+
+            print("\n[Test 8] Testing get_messages...")
+            get_messages_result = await test_get_messages(client, max_messages=5)
 
             # 总结
             print("\n" + "=" * 50)
