@@ -89,23 +89,129 @@ All subsequent operations MUST use the configured device_id.
 
 ------------------------------------------------------------------------
 
-## 5. Execution Phase
+## 5. Target Process Control
 
-Only after:
+Before script injection the AI MUST connect to or start the target process.
 
--   Version read
--   Config loaded/initialized
--   Frida server verified
--   Device selected and saved
+Two possible methods exist:
 
-The AI may proceed with:
+- `attach(target: str)` – attach to a running process
+- `spawn(package_name: str)` – start the target process in suspended state
 
--   Process enumeration
--   Process attachment
--   Script injection
--   Custom Frida functionality
+Parameters:
 
-(Details to be extended.)
+- `target`: running process name
+- `package_name`: package or executable name
+
+Script injection is only allowed after one of these calls succeeds.
+
+------------------------------------------------------------------------
+
+## 6. Script Construction and Injection
+
+After attaching to the process the AI may construct the script to be injected.
+
+### Script Management
+
+- `get_script_list` – list available built-in scripts
+- `get_script_now` – retrieve the currently constructed script
+- `reset_script_now` – clear the current script
+- `inject_user_script_run` – inject and run a user script (string)
+- `inject_user_script_run_all` – inject and run a user script (file path)
+
+### Android Script Tools
+
+- `android_load_script_anti_DexHelper_hook_clone`
+- `android_load_script_anti_DexHelper_hook_pthread`
+- `android_load_script_anti_DexHelper`
+- `android_load_hook_net_libssl`
+- `android_load_hook_clone`
+- `android_load_hook_activity`
+
+### Windows Script Tools
+
+- `windows_load_monitor_api`
+- `windows_load_monitor_registry`
+- `windows_load_monitor_file`
+
+### Script Execution Behavior
+
+All script tool functions (except the two user injection functions) include:
+
+`run_script_bool: bool = False`
+
+Meaning:
+
+- `False` → only append the script to the current injector script
+- `True` → append and immediately execute
+
+Special behavior:
+
+- `inject_user_script_run`
+- `inject_user_script_run_all`
+
+These functions execute immediately and do not use `run_script_bool`.
+
+### Script Composition Rules
+
+- Multiple script tool calls concatenate into **the current injector script**
+- Executing a script will:
+  1. unload previously injected scripts
+  2. inject the newly constructed script
+  3. execute it immediately
+
+------------------------------------------------------------------------
+
+# 7. Message and Log Handling
+
+After script injection, runtime output must be retrieved using:
+
+- get_messages
+- get_new_messages
+
+Definitions:
+
+get_messages  
+Returns the full global log buffer snapshot.
+
+get_new_messages  
+Returns only messages produced since the last retrieval.
+
+The AI must determine when to retrieve logs:
+
+Possible strategies:
+
+- Wait an appropriate amount of time for hooks to trigger
+- Ask the user to perform actions in the target application
+- Wait until the user confirms the action is finished
+
+Only then fetch logs to obtain hook results.
+
+------------------------------------------------------------------------
+
+# 8. Session Management
+
+At the end of a single task, the AI may call:
+
+- detach
+- get_session_info
+
+Purpose:
+
+- Safely terminate the session
+- Check if a session is still active
+
+------------------------------------------------------------------------
+
+# 9. Multi-Target Workflow
+
+After finishing work on one program:
+
+If steps 1-4 remain unchanged, the AI may start directly from:
+
+Step 5 (Process Connection)
+
+This allows efficient processing of multiple targets using the same environment.
 
 ------------------------------------------------------------------------
 

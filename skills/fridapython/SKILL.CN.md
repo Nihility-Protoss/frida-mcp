@@ -85,23 +85,127 @@ AI 必须通过与用户交互确定目标设备。
 
 ------------------------------------------------------------------------
 
-## 5. 执行阶段
+## 5. 目标进程控制
 
-仅在以下步骤完成后：
+在注入脚本之前，AI 必须连接或启动目标进程。
 
--   读取 version
--   加载/初始化 config
--   验证 frida-server 状态
--   设备选择并保存
+可使用两种方式：
 
-才可以执行：
+- `attach(target: str)`：附加到正在运行的进程
+- `spawn(package_name: str)`：启动新的目标进程
 
--   进程枚举
--   进程附加
--   脚本注入
--   自定义 Frida 功能
+参数说明：
 
-（细节后续完善）
+- `target`：运行中的进程名
+- `package_name`：应用包名或可执行文件名
+
+只有成功执行上述操作后，才能进行脚本注入。
+
+------------------------------------------------------------------------
+
+## 6. 脚本构建与注入
+
+完成进程附加后，可以开始构建并注入脚本。
+
+### 脚本管理
+
+- `get_script_list`：获取可用的内置脚本列表
+- `get_script_now`：获取当前构建中的脚本
+- `reset_script_now`：重置当前脚本
+- `inject_user_script_run`：注入并运行用户脚本（字符串）
+- `inject_user_script_run_all`：注入并运行用户脚本（文件路径）
+
+### Android 专用脚本
+
+- `android_load_script_anti_DexHelper_hook_clone`
+- `android_load_script_anti_DexHelper_hook_pthread`
+- `android_load_script_anti_DexHelper`
+- `android_load_hook_net_libssl`
+- `android_load_hook_clone`
+- `android_load_hook_activity`
+
+### Windows 专用脚本
+
+- `windows_load_monitor_api`
+- `windows_load_monitor_registry`
+- `windows_load_monitor_file`
+
+### 脚本执行机制
+
+所有脚本工具函数（除用户脚本注入函数外）都包含参数：
+
+`run_script_bool: bool = False`
+
+含义：
+
+- `False`：仅将脚本追加到当前 injector 脚本中
+- `True`：追加后立即执行
+
+特殊情况：
+
+- `inject_user_script_run`
+- `inject_user_script_run_all`
+
+这两个函数调用后会立即执行，不使用 `run_script_bool`。
+
+### 脚本组合规则
+
+- 多次调用脚本工具会 **拼接当前 injector 中的 script**
+- 每次执行 script 时会：
+
+1. 卸载之前注入的脚本
+2. 注入当前构建的脚本
+3. 立即执行
+
+
+------------------------------------------------------------------------
+
+# 7. 消息与日志处理
+
+脚本注入后，需要通过以下函数获取运行日志：
+
+- get_messages
+- get_new_messages
+
+说明：
+
+get_messages  
+返回当前 **全局日志缓冲区快照**。
+
+get_new_messages  
+返回 **自上次获取以来产生的日志**。
+
+AI 需要自行判断何时获取日志，例如：
+
+- 等待一段时间让 hook 触发
+- 让用户在目标程序中执行操作
+- 等待用户确认操作完成
+
+随后再调用日志函数获取 hook 输出。
+
+------------------------------------------------------------------------
+
+# 8. Session 管理
+
+单轮操作结束后，可以调用：
+
+- detach
+- get_session_info
+
+作用：
+
+- 断开当前 session
+- 检查当前是否仍然附加进程
+
+------------------------------------------------------------------------
+
+# 9. 多程序处理
+
+完成一个程序的分析后：
+
+如果 **步骤 1-4 的环境未发生变化**，
+
+处理下一个程序时可以 **直接从步骤 5（进程连接）开始**。
 
 ------------------------------------------------------------------------
 
