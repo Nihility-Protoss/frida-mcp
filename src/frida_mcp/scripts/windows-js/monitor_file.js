@@ -282,6 +282,46 @@ function createFileOnLeave(apiName) {
 }
 
 /**
+ * 创建DeleteFile API的替换函数，阻止删除但返回成功
+ * @param {string} apiName - API名称 (DeleteFileW 或 DeleteFileA)
+ * @param {string} filePath - 文件路径关键字
+ * @returns {Function} 替换函数
+ */
+function createDeleteFileReplacement(apiName, filePath) {
+    return new NativeCallback(function(lpFileName) {
+        try {
+            const isWide = apiName.endsWith('W');
+            const fileName = safeReadString(ptr(lpFileName), isWide);
+            
+            // 检查是否为目标路径
+            const isTarget = isTargetPath(filePath, fileName);
+            
+            if (isTarget) {
+                console.log(`[BLOCKED] ${apiName} ${fileName} - Deletion prevented, returning success`);
+                
+                // 阻止删除操作，但返回成功 (TRUE = 1)
+                return 1; // TRUE - 表示删除成功
+            } else {
+                // 非目标文件，调用原始函数
+                console.log(`[FILE] ${apiName} ${fileName}`);
+                
+                // 获取原始函数指针
+                const module = Process.getModuleByName("kernel32.dll");
+                const originalFunc = module.getExportByName(apiName);
+                
+                // 调用原始函数
+                const original = new NativeFunction(originalFunc, 'int', ['pointer']);
+                return original(lpFileName);
+            }
+        } catch (e) {
+            console.log(`[${apiName} Error] ${e.message}`);
+            // 出错时也返回成功，避免程序崩溃
+            return 1;
+        }
+    }, 'int', ['pointer']);
+}
+
+/**
  * 监控特定文件API
  * @param {string} apiName - API名称 (如 "CreateFileW", "WriteFile", "ReadFile" 等)
  * @param {string} filePath - 文件路径关键字
@@ -290,10 +330,28 @@ function createFileOnLeave(apiName) {
 function monitorFileApi(apiName, filePath, monitorReturn = true) {
     console.log(`[+] Monitoring file API: ${apiName} for path: "${filePath}"`);
     
-    const onEnter = createFileOnEnter(apiName, filePath);
-    const onLeave = monitorReturn ? createFileOnLeave(apiName) : null;
-    
-    monitorApi("kernel32.dll", apiName, onEnter, onLeave);
+    // 为DeleteFile API使用替换方式，阻止删除但返回成功
+    if (apiName === "DeleteFileW" || apiName === "DeleteFileA") {
+        try {
+            const module = Process.getModuleByName("kernel32.dll");
+            const apiAddress = module.getExportByName(apiName);
+            
+            if (apiAddress) {
+                const replacement = createDeleteFileReplacement(apiName, filePath);
+                Interceptor.replace(apiAddress, replacement);
+                console.log(`[+] Replaced ${apiName} with custom implementation`);
+            } else {
+                console.log(`[-] API ${apiName} not found in kernel32.dll`);
+            }
+        } catch (e) {
+            console.log(`[+] Error replacing ${apiName}: ${e.message}`);
+        }
+    } else {
+        // 其他API使用正常的监控方式
+        const onEnter = createFileOnEnter(apiName, filePath);
+        const onLeave = monitorReturn ? createFileOnLeave(apiName) : null;
+        monitorApi("kernel32.dll", apiName, onEnter, onLeave);
+    }
 }
 
 /**
