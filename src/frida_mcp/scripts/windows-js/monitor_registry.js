@@ -62,46 +62,6 @@ function parseRegistryData(lpData, dwType, cbData) {
 }
 
 /**
- * 检查是否为目标注册表路径
- * @param {string} targetPath - 目标路径关键字
- * @param {string} currentPath - 当前路径
- * @returns {boolean} 是否匹配
- */
-function isTargetRegistry(targetPath, currentPath) {
-    // 如果targetPath为空或null，则匹配所有路径
-    if (!targetPath || targetPath === "") {
-        return false;
-    }
-    if (!currentPath) return false;
-    return currentPath.toLowerCase().includes(targetPath.toLowerCase());
-}
-
-// 工具函数：安全读取字符串（自动区分 A/W 版本 + 崩溃防护）
-function safeReadString(ptr, isWide) {
-    if (!ptr || ptr.isNull()) return "";
-    try {
-        return isWide ? ptr.readUtf16String() : ptr.readUtf8String();
-    } catch (e) {
-        return "[invalid_ptr]";
-    }
-}
-
-// 工具函数：安全转换指针为数值
-function safeToUInt32(ptr, defaultValue = 0) {
-    if (!ptr || ptr.isNull()) return defaultValue;
-    try {
-        return ptr.toUInt32();
-    } catch (e) {
-        return defaultValue;
-    }
-}
-
-// 工具函数：安全获取参数（避免索引越界）
-function safeArg(args, index, defaultPtr = ptr(0)) {
-    return (args && index < args.length) ? args[index] : defaultPtr;
-}
-
-/**
  * 创建注册表API监控的通用onEnter回调
  * @param {string} apiName - API名称
  * @param {string} registryPath - 注册表路径关键字
@@ -206,7 +166,7 @@ function createRegistryOnEnter(apiName, registryPath) {
             }
 
             // 检查是否为目标路径
-            const isTarget = isTargetRegistry(registryPath, keyPath);
+            const isTarget = isTargetPath(registryPath, keyPath);
 
             if (isTarget) {
                 console.log(`[REGISTRY] Monitoring path: "${registryPath}"`);

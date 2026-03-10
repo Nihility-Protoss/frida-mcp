@@ -1304,24 +1304,51 @@ def windows_load_monitor_registry(
 
 @mcp.tool()
 def windows_load_monitor_file(
-        file_path: str,
+        api_name: str,
+        file_path: str = "",
         run_script_bool: bool = True
 ) -> Dict[str, Any]:
     """
     加载Windows平台的文件监控脚本
 
     Args:
-        file_path: 要监控的文件完整路径
+        api_name: 文件操作API名称，必须是以下之一：
+            CreateFileW, CreateFileA, ReadFile, WriteFile,
+            DeleteFileW, DeleteFileA, MoveFileW, MoveFileA,
+            MoveFileExW, MoveFileExA, CopyFileW, CopyFileA,
+            CopyFileExW, CopyFileExA, CloseHandle
+        file_path: 要监控的文件完整路径（可以为空，监控所有路径）
         run_script_bool: 若为True则在加载后立即执行脚本
 
     Returns:
         {status, message}
     """
+    # 定义有效的文件API名称
+    VALID_FILE_APIS = {
+        "CreateFileW", "CreateFileA",
+        "ReadFile", "WriteFile",
+        "DeleteFileW", "DeleteFileA",
+        "MoveFileW", "MoveFileA",
+        "MoveFileExW", "MoveFileExA",
+        "CopyFileW", "CopyFileA",
+        "CopyFileExW", "CopyFileExA",
+        "FindFirstFileW", "FindFirstFileA",
+        "CloseHandle"
+    }
+    
+    # 验证api_name参数
+    if api_name not in VALID_FILE_APIS:
+        return {
+            "status": "error",
+            "message": f"UseLess Api Name: {api_name}, must in list[{', '.join(sorted(VALID_FILE_APIS))}]"
+        }
+    
     return _load_platform_script(
         "Windows",
         "load_monitor_file",
         injector.script_manager.load_monitor_file,
         run_script_bool,
+        api_name=api_name,
         file_path=file_path
     )
 

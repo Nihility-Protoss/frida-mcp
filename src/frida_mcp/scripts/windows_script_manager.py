@@ -58,7 +58,8 @@ class WindowsScriptManager(ScriptManager):
 
         """
         this_script_base_name = "monitor_registry.js"
-        self.load_script_from_file(this_script_base_name)
+        if this_script_base_name not in self.name:
+            self.load_script_from_file(this_script_base_name)
         this_script_filename = "monitor_registry_api.js"
         return self.load_script_from_file(
             this_script_filename,
@@ -66,11 +67,24 @@ class WindowsScriptManager(ScriptManager):
             registry_path=registry_path
         )
 
-    def load_monitor_file(self, file_path: str) -> Dict[str, Any]:
-        """加载文件监控脚本"""
-        this_script_filename = "monitor_file.js"
+    def load_monitor_file(self, api_name:str, file_path: str) -> Dict[str, Any]:
+        """
+        加载文件监控脚本
+
+        Args:
+            api_name: 要监控的文件API名称 (如 CreateFileW, WriteFile, ReadFile 等)
+            file_path: 要监控的文件路径关键字（可以为空，监控所有路径）
+
+        Returns:
+
+        """
+        this_script_base_name = "monitor_file.js"
+        if this_script_base_name not in self.name:
+            self.load_script_from_file(this_script_base_name)
+        this_script_filename = "monitor_file_api.js"
         return self.load_script_from_file(
             this_script_filename,
+            api_name=api_name,
             file_path=file_path
         )
 
