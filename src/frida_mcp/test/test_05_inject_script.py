@@ -59,7 +59,7 @@ windows_test: bool = True  # 是否测试 Windows API
 windows_module_name: str = "kernel32.dll"  # Windows 模块名称
 windows_api_name: str = "CreateFileW"  # Windows API 名称
 windows_registry_path: str = "SOFTWARE\\Test"  # Windows 注册表路径
-windows_file_path: str = "C:\\test.txt"  # Windows 文件路径
+windows_file_path: str = "test.txt"  # Windows 文件路径
 
 
 async def test_get_script_list(client: Client) -> Dict[str, Any]:
@@ -260,7 +260,7 @@ async def test_windows_load_monitor_api(client: Client) -> Dict[str, Any]:
             "windows_load_monitor_api",
             arguments={
                 "module_name": windows_module_name,
-                "api_name": windows_api_name
+                "api_name": "WriteFile"
             })
 
         return fast_result(result)
@@ -301,7 +301,7 @@ async def test_windows_load_monitor_file(client: Client) -> Dict[str, Any]:
         result = await client.call_tool(
             "windows_load_monitor_file",
             arguments={
-                "api_name": "CreateFileA",
+                "api_name": "CreateFileW",
                 "file_path": windows_file_path
             })
         result = await client.call_tool(

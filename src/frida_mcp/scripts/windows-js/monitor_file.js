@@ -85,134 +85,129 @@ function parseFileCreation(creationFlags) {
  */
 function createFileOnEnter(apiName, filePath) {
     return function(args) {
-        try {
-            let fileName = "";
-            let accessFlags = 0;
-            let creationDisposition = 0;
-            let buffer = ptr(0);
-            let bytesToReadWrite = 0;
-            let offset = 0;
-            let handle = ptr(0);
+        let fileName = "";
+        let accessFlags = 0;
+        let creationDisposition = 0;
+        let buffer = ptr(0);
+        let bytesToReadWrite = 0;
+        let offset = 0;
+        let handle = ptr(0);
 
-            // 判断是否为 Unicode 版本 (W=wide, A=ansi)
-            const isWide = apiName.endsWith('W');
+        // 判断是否为 Unicode 版本 (W=wide, A=ansi)
+        const isWide = apiName.endsWith('W');
 
-            switch (apiName) {
-                // ── 创建/打开文件 ─────────────────────────────────────
-                case "CreateFileW":
-                case "CreateFileA":
-                    // 参数: [lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
-                    //        dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]
-                    fileName = safeReadString(safeArg(args, 0), isWide);
-                    accessFlags = safeToUInt32(safeArg(args, 1));
-                    creationDisposition = safeToUInt32(safeArg(args, 4));
-                    break;
+        switch (apiName) {
+            // ── 创建/打开文件 ─────────────────────────────────────
+            case "CreateFileW":
+            case "CreateFileA":
+                // 参数: [lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                //        dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile]
+                fileName = safeReadString(safeArg(args, 0), isWide);
+                accessFlags = safeToUInt32(safeArg(args, 1));
+                creationDisposition = safeToUInt32(safeArg(args, 4));
+                break;
 
-                // ── 读取文件 ─────────────────────────────────────────
-                case "ReadFile":
-                    // 参数: [hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped]
-                    handle = safeArg(args, 0);
-                    fileName = "[HANDLE:" + formatHandle(handle) + "]";  // 句柄无法直接解析为路径
-                    buffer = safeArg(args, 1);
-                    bytesToReadWrite = safeToUInt32(safeArg(args, 2));
-                    // lpNumberOfBytesRead (args[3]) 是输出参数，onEnter 时不可读
-                    break;
+            // ── 读取文件 ─────────────────────────────────────────
+            case "ReadFile":
+                // 参数: [hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped]
+                handle = safeArg(args, 0);
+                fileName = "[HANDLE:" + formatHandle(handle) + "]";  // 句柄无法直接解析为路径
+                buffer = safeArg(args, 1);
+                bytesToReadWrite = safeToUInt32(safeArg(args, 2));
+                // lpNumberOfBytesRead (args[3]) 是输出参数，onEnter 时不可读
+                break;
 
-                // ── 写入文件 ─────────────────────────────────────────
-                case "WriteFile":
-                    // 参数: [hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped]
-                    handle = safeArg(args, 0);
-                    fileName = "[HANDLE:" + formatHandle(handle) + "]";
-                    buffer = safeArg(args, 1);
-                    bytesToReadWrite = safeToUInt32(safeArg(args, 2));
-                    break;
+            // ── 写入文件 ─────────────────────────────────────────
+            case "WriteFile":
+                // 参数: [hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped]
+                handle = safeArg(args, 0);
+                fileName = "[HANDLE:" + formatHandle(handle) + "]";
+                buffer = safeArg(args, 1);
+                bytesToReadWrite = safeToUInt32(safeArg(args, 2));
+                break;
 
-                // ── 删除文件 ─────────────────────────────────────────
-                case "DeleteFileW":
-                case "DeleteFileA":
-                    // 参数: [lpFileName]
-                    fileName = safeReadString(safeArg(args, 0), isWide);
-                    break;
+            // ── 删除文件 ─────────────────────────────────────────
+            case "DeleteFileW":
+            case "DeleteFileA":
+                // 参数: [lpFileName]
+                fileName = safeReadString(safeArg(args, 0), isWide);
+                break;
 
-                // ── 移动/重命名文件 ──────────────────────────────────
-                case "MoveFileW":
-                case "MoveFileA":
-                    // 参数: [lpExistingFileName, lpNewFileName]
-                    fileName = safeReadString(safeArg(args, 0), isWide);
-                    // 如需新路径: let newPath = safeReadString(safeArg(args, 1), isWide);
-                    break;
+            // ── 移动/重命名文件 ──────────────────────────────────
+            case "MoveFileW":
+            case "MoveFileA":
+                // 参数: [lpExistingFileName, lpNewFileName]
+                fileName = safeReadString(safeArg(args, 0), isWide);
+                // 如需新路径: let newPath = safeReadString(safeArg(args, 1), isWide);
+                break;
 
-                case "MoveFileExW":
-                case "MoveFileExA":
-                    // 参数: [lpExistingFileName, lpNewFileName, dwFlags]
-                    fileName = safeReadString(safeArg(args, 0), isWide);
-                    // 如需新路径: let newPath = safeReadString(safeArg(args, 1), isWide);
-                    // accessFlags = safeToUInt32(safeArg(args, 2));  // dwFlags
-                    break;
+            case "MoveFileExW":
+            case "MoveFileExA":
+                // 参数: [lpExistingFileName, lpNewFileName, dwFlags]
+                fileName = safeReadString(safeArg(args, 0), isWide);
+                // 如需新路径: let newPath = safeReadString(safeArg(args, 1), isWide);
+                // accessFlags = safeToUInt32(safeArg(args, 2));  // dwFlags
+                break;
 
-                // ── 复制文件 ─────────────────────────────────────────
-                case "CopyFileW":
-                case "CopyFileA":
-                    // 参数: [lpExistingFileName, lpNewFileName, bFailIfExists]
-                    fileName = safeReadString(safeArg(args, 0), isWide);
-                    // 如需目标: let dstPath = safeReadString(safeArg(args, 1), isWide);
-                    break;
+            // ── 复制文件 ─────────────────────────────────────────
+            case "CopyFileW":
+            case "CopyFileA":
+                // 参数: [lpExistingFileName, lpNewFileName, bFailIfExists]
+                fileName = safeReadString(safeArg(args, 0), isWide);
+                // 如需目标: let dstPath = safeReadString(safeArg(args, 1), isWide);
+                break;
 
-                case "CopyFileExW":
-                case "CopyFileExA":
-                    // 参数: [lpExistingFileName, lpNewFileName, lpProgressRoutine, lpData,
-                    //        pbCancel, dwCopyFlags]
-                    fileName = safeReadString(safeArg(args, 0), isWide);
-                    // 如需目标: let dstPath = safeReadString(safeArg(args, 1), isWide);
-                    // accessFlags = safeToUInt32(safeArg(args, 5));  // dwCopyFlags
-                    break;
+            case "CopyFileExW":
+            case "CopyFileExA":
+                // 参数: [lpExistingFileName, lpNewFileName, lpProgressRoutine, lpData,
+                //        pbCancel, dwCopyFlags]
+                fileName = safeReadString(safeArg(args, 0), isWide);
+                // 如需目标: let dstPath = safeReadString(safeArg(args, 1), isWide);
+                // accessFlags = safeToUInt32(safeArg(args, 5));  // dwCopyFlags
+                break;
 
-                // ── 关闭句柄（无文件名，仅记录句柄）──────────────────
-                case "CloseHandle":
-                    handle = safeArg(args, 0);
-                    fileName = "[CLOSE_HANDLE:" + formatHandle(handle) + "]";
-                    break;
+            // ── 关闭句柄（无文件名，仅记录句柄）──────────────────
+            case "CloseHandle":
+                handle = safeArg(args, 0);
+                fileName = "[CLOSE_HANDLE:" + formatHandle(handle) + "]";
+                break;
 
-                // ── 默认：尝试安全读取第一个字符串参数 ───────────────
-                default:
-                    const arg0 = safeArg(args, 0);
-                    if (arg0 && !arg0.isNull()) {
-                        fileName = safeReadString(arg0, isWide);
-                    } else {
-                        fileName = "[unknown_api:" + apiName + "]";
-                    }
-            }
-
-            // 检查是否为目标路径
-            const isTarget = isTargetPath(filePath, fileName);
-            
-            if (isTarget) {
-                let output = `[FILE] ${apiName}`;
-                if (fileName && fileName !== "[HANDLE]") output += ` ${fileName}`;
-                if (accessFlags) output += ` [${parseFileAccess(accessFlags)}]`;
-                if (creationDisposition) output += ` [${parseFileCreation(creationDisposition)}]`;
-                if (bytesToReadWrite > 0) output += ` (${bytesToReadWrite} bytes)`;
-                console.log(output);
-            } else {
-                let output = `[FILE] ${apiName}`;
-                if (fileName && fileName !== "[HANDLE]") output += ` ${fileName}`;
-                console.log(output);
-            }
-
-            // 保存数据供onLeave使用
-            this.fileData = {
-                apiName,
-                fileName,
-                accessFlags,
-                creationDisposition,
-                buffer,
-                bytesToReadWrite,
-                isTarget
-            };
-
-        } catch (e) {
-            console.log(`[${apiName} Error] ${e.message}`);
+            // ── 默认：尝试安全读取第一个字符串参数 ───────────────
+            default:
+                const arg0 = safeArg(args, 0);
+                if (arg0 && !arg0.isNull()) {
+                    fileName = safeReadString(arg0, isWide);
+                } else {
+                    fileName = "[unknown_api:" + apiName + "]";
+                }
         }
+
+        // 检查是否为目标路径
+        const isTarget = isTargetPath(filePath, fileName);
+
+        if (isTarget) {
+            let output = `[FILE] ${apiName}`;
+            if (fileName && fileName !== "[HANDLE]") output += ` ${fileName}`;
+            if (accessFlags) output += ` [${parseFileAccess(accessFlags)}]`;
+            if (creationDisposition) output += ` [${parseFileCreation(creationDisposition)}]`;
+            if (bytesToReadWrite > 0) output += ` (${bytesToReadWrite} bytes)`;
+            console.log(output);
+        } else {
+            let output = `[FILE] ${apiName}`;
+            if (fileName && fileName !== "[HANDLE]") output += ` ${fileName}`;
+            console.log(output);
+        }
+
+        // 保存数据供onLeave使用
+        this.fileData = {
+            apiName,
+            fileName,
+            accessFlags,
+            creationDisposition,
+            buffer,
+            bytesToReadWrite,
+            isTarget
+        };
     };
 }
 
@@ -272,10 +267,12 @@ function createFileOnLeave(apiName) {
                     console.log(`ERROR: ${retval.toInt32()}`);
                 }
                 
-                console.log("-".repeat(50));
+                console.log("[TARGET FILE RESULT] " + "-".repeat(50));
             } else {
                 if (!success) {
                     console.log(`[${data.apiName} FAILED] ${retval.toString(16)}`);
+                } else if (apiName.includes("CreateFile")){
+                    console.log(`[${apiName} Success] [${resultDesc}]`)
                 }
             }
         } catch (e) {

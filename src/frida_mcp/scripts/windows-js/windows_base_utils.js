@@ -7,7 +7,7 @@
 function isTargetPath(targetPath, currentPath) {
     // 如果targetPath为空或null，则匹配所有路径
     if (!targetPath || targetPath === "") {
-        return false;
+        return true;
     }
     if (!currentPath) return false;
     return currentPath.toLowerCase().includes(targetPath.toLowerCase());
@@ -35,7 +35,12 @@ function safeToUInt32(ptr, defaultValue = 0) {
 
 // 工具函数：安全获取参数（避免索引越界）
 function safeArg(args, index, defaultPtr = ptr(0)) {
-    return (args && index < args.length) ? args[index] : defaultPtr;
+    // Frida的args是特殊的NativePointer数组，需要直接访问
+    if (!args || index < 0) return defaultPtr;
+    
+    // 尝试直接访问，如果越界会抛出异常
+    const arg = args[index];
+    return arg || defaultPtr;
 }
 // 🔧 工具函数：格式化句柄（便于日志追踪）
 function formatHandle(h) {

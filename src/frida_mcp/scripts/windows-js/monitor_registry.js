@@ -69,146 +69,141 @@ function parseRegistryData(lpData, dwType, cbData) {
  */
 function createRegistryOnEnter(apiName, registryPath) {
     return function (args) {
-        try {
-            let keyPath = "";
-            let valueName = "";
-            let dataType = 0;
-            let dataPtr = ptr(0);
-            let dataSize = 0;
-            let access = 0;
+        let keyPath = "";
+        let valueName = "";
+        let dataType = 0;
+        let dataPtr = ptr(0);
+        let dataSize = 0;
+        let access = 0;
 
-            // 判断是否为 Unicode 版本 (W=wide, A=ansi)
-            const isWide = apiName.endsWith('W');
+        // 判断是否为 Unicode 版本 (W=wide, A=ansi)
+        const isWide = apiName.endsWith('W');
 
-            switch (apiName) {
-                // ── 打开/创建键 ─────────────────────────────────────
-                case "RegOpenKeyExW":
-                case "RegOpenKeyExA":
-                case "RegCreateKeyExW":
-                case "RegCreateKeyExA":
-                    // 参数: [hKey, lpSubKey, Reserved, samDesired, phkResult]
-                    keyPath = safeReadString(safeArg(args, 1), isWide);
-                    access = safeToUInt32(safeArg(args, 3));
-                    break;
+        switch (apiName) {
+            // ── 打开/创建键 ─────────────────────────────────────
+            case "RegOpenKeyExW":
+            case "RegOpenKeyExA":
+            case "RegCreateKeyExW":
+            case "RegCreateKeyExA":
+                // 参数: [hKey, lpSubKey, Reserved, samDesired, phkResult]
+                keyPath = safeReadString(safeArg(args, 1), isWide);
+                access = safeToUInt32(safeArg(args, 3));
+                break;
 
-                // ── 设置值 ─────────────────────────────────────────
-                case "RegSetValueExW":
-                case "RegSetValueExA":
-                    // 参数: [hKey, lpValueName, Reserved, dwType, lpData, cbData]
-                    valueName = safeReadString(safeArg(args, 1), isWide);
-                    dataType = safeToUInt32(safeArg(args, 3));
-                    dataPtr = safeArg(args, 4);
-                    dataSize = safeToUInt32(safeArg(args, 5));
-                    // ⚠️ keyPath 无法从参数直接获取，用句柄标记
-                    keyPath = "[hKey:" + safeArg(args, 0) + "]";
-                    break;
+            // ── 设置值 ─────────────────────────────────────────
+            case "RegSetValueExW":
+            case "RegSetValueExA":
+                // 参数: [hKey, lpValueName, Reserved, dwType, lpData, cbData]
+                valueName = safeReadString(safeArg(args, 1), isWide);
+                dataType = safeToUInt32(safeArg(args, 3));
+                dataPtr = safeArg(args, 4);
+                dataSize = safeToUInt32(safeArg(args, 5));
+                // ⚠️ keyPath 无法从参数直接获取，用句柄标记
+                keyPath = "[hKey:" + safeArg(args, 0) + "]";
+                break;
 
-                // ── 查询值 ─────────────────────────────────────────
-                case "RegQueryValueExW":
-                case "RegQueryValueExA":
-                    // 参数: [hKey, lpValueName, Reserved, lpData, lpcbData]
-                    valueName = safeReadString(safeArg(args, 1), isWide);
-                    dataType = 0;  // 输出参数，此时未知
-                    dataPtr = safeArg(args, 3);   // 可能为 NULL（仅查询类型/大小）
-                    dataSize = safeToUInt32(safeArg(args, 4));
-                    keyPath = "[hKey:" + safeArg(args, 0) + "]";
-                    break;
+            // ── 查询值 ─────────────────────────────────────────
+            case "RegQueryValueExW":
+            case "RegQueryValueExA":
+                // 参数: [hKey, lpValueName, Reserved, lpData, lpcbData]
+                valueName = safeReadString(safeArg(args, 1), isWide);
+                dataType = 0;  // 输出参数，此时未知
+                dataPtr = safeArg(args, 3);   // 可能为 NULL（仅查询类型/大小）
+                dataSize = safeToUInt32(safeArg(args, 4));
+                keyPath = "[hKey:" + safeArg(args, 0) + "]";
+                break;
 
-                // ── 删除值 ─────────────────────────────────────────
-                case "RegDeleteValueW":
-                case "RegDeleteValueA":
-                    // 参数: [hKey, lpValueName]
-                    valueName = safeReadString(safeArg(args, 1), isWide);
-                    keyPath = "[hKey:" + safeArg(args, 0) + "]";
-                    break;
+            // ── 删除值 ─────────────────────────────────────────
+            case "RegDeleteValueW":
+            case "RegDeleteValueA":
+                // 参数: [hKey, lpValueName]
+                valueName = safeReadString(safeArg(args, 1), isWide);
+                keyPath = "[hKey:" + safeArg(args, 0) + "]";
+                break;
 
-                // ── 删除键 ─────────────────────────────────────────
-                case "RegDeleteKeyW":
-                case "RegDeleteKeyA":
-                    // 参数: [hKey, lpSubKey]
-                    keyPath = safeReadString(safeArg(args, 1), isWide);
-                    break;
+            // ── 删除键 ─────────────────────────────────────────
+            case "RegDeleteKeyW":
+            case "RegDeleteKeyA":
+                // 参数: [hKey, lpSubKey]
+                keyPath = safeReadString(safeArg(args, 1), isWide);
+                break;
 
-                // ── 枚举子键 ───────────────────────────────────────
-                case "RegEnumKeyExW":
-                case "RegEnumKeyExA":
-                    // 参数: [hKey, dwIndex, lpName, lpcchName, ...]
-                    // lpName 是输出参数，onEnter 时无法读取，仅记录索引
-                    const enumIndex = safeToUInt32(safeArg(args, 1));
-                    keyPath = "[enum_index:" + enumIndex + "]";
-                    access = safeToUInt32(safeArg(args, 3));  // lpReserved
-                    break;
+            // ── 枚举子键 ───────────────────────────────────────
+            case "RegEnumKeyExW":
+            case "RegEnumKeyExA":
+                // 参数: [hKey, dwIndex, lpName, lpcchName, ...]
+                // lpName 是输出参数，onEnter 时无法读取，仅记录索引
+                const enumIndex = safeToUInt32(safeArg(args, 1));
+                keyPath = "[enum_index:" + enumIndex + "]";
+                access = safeToUInt32(safeArg(args, 3));  // lpReserved
+                break;
 
-                // ── 枚举值 ─────────────────────────────────────────
-                case "RegEnumValueW":
-                case "RegEnumValueA":
-                    // 参数: [hKey, dwIndex, lpValueName, lpcchValueName, ...]
-                    // lpValueName 是输出参数，onEnter 时无法读取
-                    const enumValIndex = safeToUInt32(safeArg(args, 1));
-                    valueName = "[enum_index:" + enumValIndex + "]";
-                    access = safeToUInt32(safeArg(args, 3));  // lpReserved
-                    keyPath = "[hKey:" + safeArg(args, 0) + "]";
-                    break;
+            // ── 枚举值 ─────────────────────────────────────────
+            case "RegEnumValueW":
+            case "RegEnumValueA":
+                // 参数: [hKey, dwIndex, lpValueName, lpcchValueName, ...]
+                // lpValueName 是输出参数，onEnter 时无法读取
+                const enumValIndex = safeToUInt32(safeArg(args, 1));
+                valueName = "[enum_index:" + enumValIndex + "]";
+                access = safeToUInt32(safeArg(args, 3));  // lpReserved
+                keyPath = "[hKey:" + safeArg(args, 0) + "]";
+                break;
 
-                // ── 关闭键（无字符串参数，仅记录句柄）──────────────
-                case "RegCloseKey":
-                    keyPath = "[close_hKey:" + safeArg(args, 0) + "]";
-                    break;
+            // ── 关闭键（无字符串参数，仅记录句柄）──────────────
+            case "RegCloseKey":
+                keyPath = "[close_hKey:" + safeArg(args, 0) + "]";
+                break;
 
-                // ── 默认：尝试安全读取 ───────────────────────────
-                default:
-                    const arg1 = safeArg(args, 1);
-                    if (arg1 && !arg1.isNull()) {
-                        keyPath = safeReadString(arg1, isWide);
-                    } else {
-                        keyPath = "[unknown_api:" + apiName + "]";
-                    }
-            }
-
-            // 检查是否为目标路径
-            const isTarget = isTargetPath(registryPath, keyPath);
-
-            if (isTarget) {
-                console.log(`[REGISTRY] Monitoring path: "${registryPath}"`);
-                // 有指定路径时显示详细输出
-                console.log("[TARGET REGISTRY] " + "=".repeat(60));
-                console.log(`API: ${apiName}`);
-
-                if (keyPath) console.log(`KEY: ${keyPath}`);
-                if (valueName) console.log(`VALUE: ${valueName}`);
-                if (access) console.log(`ACCESS: 0x${access.toString(16)}`);
-                if (dataType) {
-                    console.log(`TYPE: 0x${dataType.toString(16)} (${REGISTRY_TYPES[dataType.toInt32()] || 'UNKNOWN'})`);
+            // ── 默认：尝试安全读取 ───────────────────────────
+            default:
+                const arg1 = safeArg(args, 1);
+                if (arg1 && !arg1.isNull()) {
+                    keyPath = safeReadString(arg1, isWide);
+                } else {
+                    keyPath = "[unknown_api:" + apiName + "]";
                 }
-                if (dataPtr && !dataPtr.isNull() && dataSize > 0) {
-                    const dataStr = parseRegistryData(dataPtr, dataType, dataSize);
-                    console.log(`DATA: ${dataStr}`);
-                    console.log(`LENGTH: ${dataSize.toInt32()}`);
-                }
-
-                console.log("=".repeat(60));
-            } else {
-                // 非目标路径的简单输出（非空路径时也触发）
-                let output = `[${apiName}]`;
-                if (keyPath) output += ` ${keyPath}`;
-                if (valueName && valueName !== keyPath) output += `\\${valueName}`;
-                console.log(output);
-            }
-
-            // 保存数据供onLeave使用
-            this.registryData = {
-                apiName,
-                keyPath,
-                valueName,
-                dataType,
-                dataPtr,
-                dataSize,
-                isTarget
-            };
-
-        } catch (e) {
-            console.log(`[${apiName} Error] ${e.message}`);
         }
+
+        // 检查是否为目标路径
+        const isTarget = isTargetPath(registryPath, keyPath);
+
+        if (isTarget) {
+            console.log(`[REGISTRY] Monitoring path: "${registryPath}"`);
+            // 有指定路径时显示详细输出
+            console.log("[TARGET REGISTRY] " + "=".repeat(60));
+            console.log(`API: ${apiName}`);
+
+            if (keyPath) console.log(`KEY: ${keyPath}`);
+            if (valueName) console.log(`VALUE: ${valueName}`);
+            if (access) console.log(`ACCESS: 0x${access.toString(16)}`);
+            if (dataType) {
+                console.log(`TYPE: 0x${dataType.toString(16)} (${REGISTRY_TYPES[dataType.toInt32()] || 'UNKNOWN'})`);
+            }
+            if (dataPtr && !dataPtr.isNull() && dataSize > 0) {
+                const dataStr = parseRegistryData(dataPtr, dataType, dataSize);
+                console.log(`DATA: ${dataStr}`);
+                console.log(`LENGTH: ${dataSize.toInt32()}`);
+            }
+
+            console.log("=".repeat(60));
+        } else {
+            // 非目标路径的简单输出（非空路径时也触发）
+            let output = `[${apiName}]`;
+            if (keyPath) output += ` ${keyPath}`;
+            if (valueName && valueName !== keyPath) output += `\\${valueName}`;
+            console.log(output);
+        }
+
+        // 保存数据供onLeave使用
+        this.registryData = {
+            apiName,
+            keyPath,
+            valueName,
+            dataType,
+            dataPtr,
+            dataSize,
+            isTarget
+        };
     };
 }
 
