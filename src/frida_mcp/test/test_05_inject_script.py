@@ -276,7 +276,16 @@ async def test_windows_load_monitor_registry(client: Client) -> Dict[str, Any]:
     try:
         result = await client.call_tool(
             "windows_load_monitor_registry",
-            arguments={"registry_path": windows_registry_path})
+            arguments={
+                "api_name": "RegSetValueExA",
+                "registry_path": windows_registry_path
+            })
+        result = await client.call_tool(
+            "windows_load_monitor_registry",
+            arguments={
+                "api_name": "RegSetValueExW",
+                "registry_path": ""
+            })
 
         return fast_result(result)
 
@@ -291,8 +300,16 @@ async def test_windows_load_monitor_file(client: Client) -> Dict[str, Any]:
     try:
         result = await client.call_tool(
             "windows_load_monitor_file",
-            arguments={"file_path": windows_file_path})
-
+            arguments={
+                "api_name": "CreateFileA",
+                "file_path": windows_file_path
+            })
+        result = await client.call_tool(
+            "windows_load_monitor_file",
+            arguments={
+                "api_name": "WriteFile",
+                "file_path": ""
+            })
         return fast_result(result)
 
     except Exception as e:

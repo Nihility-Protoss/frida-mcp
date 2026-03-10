@@ -109,7 +109,7 @@ class BaseInjector(ABC):
                     'data': None
                 }
 
-            script_name = ",".join(script_manager.name)
+            script_name = f"{len(script_manager.name)}: {script_manager.name[-1]}"
 
             if self.running_script is not None:
                 try:
