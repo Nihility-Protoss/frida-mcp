@@ -3,6 +3,7 @@
 """
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Dict, Any, Optional, Union
 
 import frida
@@ -143,9 +144,80 @@ class BaseInjector(ABC):
     def _handle_script_message(self, script_name: str, message: Dict[str, Any], data: bytes) -> None:
         """处理脚本消息"""
         if message['type'] == 'send':
-            self._log(f"[{script_name}] {message['payload']}")
+            payload = message['payload']
+            
+            # 处理内存 dump 消息
+            if isinstance(payload, dict):
+                msg_type = payload.get('type')
+                if msg_type == 'memory_dump':
+                    self._handle_memory_dump(payload, data)
+                    return
+                elif msg_type == 'executable_memory_alert':
+                    self._handle_executable_alert(payload)
+                    return
+            
+            # 普通日志消息
+            self._log(f"[{script_name}] {payload}")
+            
         elif message['type'] == 'error':
             self._log(f"[{script_name}] ERROR: {message['stack']}")
+
+    def _handle_executable_alert(self, payload: Dict[str, Any]) -> None:
+        """
+        处理可执行内存告警
+        注意：详细日志由JS端统一发送，此函数仅做必要的本地处理
+        """
+        try:
+            action = payload.get('action', 'unknown')
+            extraInfo = payload.get('extraInfo', {})
+            
+            # 只在关键动作时输出简洁确认，避免与JS端日志重复
+            if action == 'dump_on_first_execute':
+                caller = extraInfo.get('caller', 'unknown')
+                self._log(f"[ALERT] First execution at {caller}")
+            elif action == 'transition':
+                prev = extraInfo.get('previousProtect', 'unknown')
+                new = extraInfo.get('newProtect', 'unknown')
+                self._log(f"[ALERT] {prev} -> {new}")
+            # immediate_dump 和 monitor_first_execute 不输出（JS端已发送详细日志）
+        except Exception as e:
+            self._log(f"[ALERT ERROR] {str(e)}")
+
+    def _handle_memory_dump(self, payload: Dict[str, Any], data: bytes) -> None:
+        """
+        保存内存 dump 到文件
+        注意：此函数只负责文件保存，不输出日志（日志由JS端统一发送）
+        
+        Args:
+            payload: 消息payload，包含filename, address, size等信息
+            data: 二进制内存数据
+        """
+        from datetime import datetime
+        
+        try:
+            filename = payload.get('filename', f"dump_{datetime.now().timestamp()}.bin")
+            pid = payload.get('pid', self.current_pid or 'unknown')
+            
+            # 创建dump目录
+            dump_dir = Path("memory_dumps")
+            dump_dir.mkdir(exist_ok=True)
+            
+            # 添加PID子目录
+            pid_dir = dump_dir / str(pid)
+            pid_dir.mkdir(exist_ok=True)
+            
+            filepath = pid_dir / filename
+            
+            if data:
+                with open(filepath, 'wb') as f:
+                    f.write(data)
+                # 发送成功确认消息（仅包含文件路径，避免重复信息）
+                self._log(f"[DUMP SAVED] {filepath}")
+            else:
+                self._log(f"[DUMP ERROR] No data received for {filename}")
+                
+        except Exception as e:
+            self._log(f"[DUMP ERROR] Failed to save: {str(e)}")
 
     @abstractmethod
     async def attach(self, target: str) -> Dict[str, Any]:

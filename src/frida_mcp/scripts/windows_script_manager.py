@@ -99,6 +99,26 @@ class WindowsScriptManager(ScriptManager):
             this_script_filename,
         )
 
+    def load_monitor_memory_alloc(self, api_names: list = None) -> Dict[str, Any]:
+        """
+        加载内存分配监控脚本
+        监控VirtualAlloc、HeapCreate、CreateFiber等API
+        当检测到RX/RWX类型的可执行内存时，自动dump内存
+
+        Args:
+            api_names: 要监控的API名称列表，默认为None（使用默认列表）
+                      可选值: ["VirtualAlloc", "VirtualAllocEx", "VirtualProtect", 
+                              "HeapCreate", "HeapAlloc", "CreateFiber", ...]
+
+        Returns:
+            dict: {'error': str, 'data': str}
+                error: 错误信息，成功时为None
+                data: 构建完成的脚本
+        """
+        # 加载基础脚本
+        this_script_base_name = "monitor_memory_alloc.js"
+        return self.load_script_from_file(this_script_base_name)
+
 
 if __name__ == '__main__':
     a = WindowsScriptManager()
