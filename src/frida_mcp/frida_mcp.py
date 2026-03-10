@@ -1353,6 +1353,27 @@ def windows_load_monitor_file(
     )
 
 
+@mcp.tool()
+def windows_load_monitor_file(
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载 Windows 平台的所有文件监控 API，可能造成极大量的 log 信息，请谨慎使用
+
+    Args:
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+
+    return _load_platform_script(
+        "Windows",
+        "fast_load_all_monitor_file",
+        injector.script_manager.fast_load_all_monitor_file,
+        run_script_bool,
+    )
+
 if __name__ == "__main__":
     # Ensure the server doesn't shut down immediately. 
     # For transport="streamable-http", FastMCP should use the host/port from constructor.

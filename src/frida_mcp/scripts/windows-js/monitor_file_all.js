@@ -1,0 +1,14 @@
+monitorFileApi("CreateFileW", "");
+monitorFileApi("CreateFileA", "");
+monitorFileApi("ReadFile", "");
+monitorFileApi("WriteFile", "");
+monitorFileApi("DeleteFileW", "");
+monitorFileApi("DeleteFileA", "");
+monitorFileApi("MoveFileW", "");
+monitorFileApi("MoveFileA", "");
+monitorFileApi("MoveFileExW", "");
+monitorFileApi("CopyFileW", "");
+monitorFileApi("CopyFileA", "");
+monitorFileApi("CopyFileExW", "");
+monitorFileApi("CopyFileExA", "");
+monitorFileApi("CloseHandle", "");

@@ -88,6 +88,17 @@ class WindowsScriptManager(ScriptManager):
             file_path=file_path
         )
 
+    def fast_load_all_monitor_file(self) -> Dict[str, Any]:
+        """
+        加载所有文件监控 API 脚本，可能造成极大量的 log 信息，请谨慎使用
+        Returns:
+
+        """
+        this_script_filename = "monitor_file_all.js"
+        return self.load_script_from_file(
+            this_script_filename,
+        )
+
 
 if __name__ == '__main__':
     a = WindowsScriptManager()
