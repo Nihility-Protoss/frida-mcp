@@ -1,3 +1,5 @@
+![](https://img.shields.io/badge/KimiK2%20Assisted-75%25-00a67d)
+
 # Frida MCP Server
 
 A Frida dynamic instrumentation server based on the Model Context Protocol (MCP), allowing AI models (such as Claude, Gemini, etc.) to perform dynamic analysis for mobile and desktop applications through a standardized interface.

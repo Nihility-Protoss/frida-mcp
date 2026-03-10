@@ -1,3 +1,5 @@
+![](https://img.shields.io/badge/KimiK2%20Assisted-75%25-00a67d)
+
 # Frida MCP Server
 
 这是一个基于 Model Context Protocol (MCP) 的 Frida 动态调试服务器，允许 AI 模型（如 Claude、Gemini 等）通过标准化的接口执行移动端和桌面端的动态分析。
