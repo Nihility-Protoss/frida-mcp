@@ -2,41 +2,47 @@
 
 # Frida MCP Server
 
-A Frida dynamic instrumentation server based on the Model Context Protocol (MCP), allowing AI models (such as Claude, Gemini, etc.) to perform dynamic analysis for mobile and desktop applications through a standardized interface.
+A Frida dynamic debugging server based on Model Context Protocol (MCP), allowing AI models (such as Claude, Gemini, etc.) to perform dynamic analysis on mobile and desktop platforms through a standardized interface.
 
-## Project Credits
-This project's source code and design are inspired by the following excellent open-source projects:
-- [zhizhuodemao/frida-mcp](https://github.com/zhizhuodemao/frida-mcp): Provides the foundation for Android dynamic analysis and Frida management logic.
-- [dnakov/frida-mcp](https://github.com/dnakov/frida-mcp): Provides a reference for the standard implementation using the MCP Python SDK.
+## Project Source
+This project references the following open source projects:
+- [zhizhuodemao/frida-mcp](https://github.com/zhizhuodemao/frida-mcp): Provides basic Android dynamic analysis and Frida management logic.
+- [dnakov/frida-mcp](https://github.com/dnakov/frida-mcp): Provides a standard implementation reference based on MCP Python SDK.
 
-Some js files are from the following articles:
-- [scripts/android-js/anti_libDexHelper.so.js](https://bbs.kanxue.com/thread-289545.htm) [Original] Bypassing new version Frida detection in certain reinforcement
+Some JS files are from the following articles:
+- [scripts/android-js/anti_libDexHelper.so.js](https://bbs.kanxue.com/thread-289545.htm) [Original] Bypassing new version Frida detection for certain protection
 - [scripts/android-js/hook_clone.js](https://bbs.kanxue.com/thread-289404.htm) [Original] Analysis of certain ventilation control parameters & Frida bypass (Part 1)
 - [scripts/android-js/hook_net_libssl.so.js](https://bbs.kanxue.com/thread-289085.htm) Frida intercepting http/https requests
 
 ## Core Features
 
-### 1. Device and Process Management
-- **Device Enumeration**: List all connected USB, local, or remote devices.
-- **Process Management**: Real-time listing of all running processes on the target device, including search by process name.
-- **Application List**: Retrieve information about installed applications (package ID, name, etc.).
-- **Frontmost App Detection**: Automatically detect the currently active application on the device.
+### 1. Cross-platform Device and Process Management
+Unified support for device and process operations on Android and Windows platforms:
+- **Device Management**: Enumerate USB, local, or remote devices, retrieve device basic information.
+- **Process Management**: List running processes, support search by name, resume suspended processes, and terminate processes.
+- **Application Management**: Get installed application list, foreground app information, support operating applications by package name.
 
-### 2. Dynamic Injection and Hooking
-- **Attach Mode**: Attach to a running process for real-time debugging.
-- **Spawn Mode**: Launch and suspend an application to inject scripts at the very beginning.
-- **Script Management**: Support for direct JS code string input or loading `.js` script files via absolute paths.
-- **Log Output**: Automatically redirects `console.log` to the MCP message buffer for real-time log retrieval.
+### 2. Dynamic Debugging and Script Injection
+Provides complete dynamic debugging lifecycle management:
+- **Session Management**: Supports Attach mode (attach to running processes) and Spawn mode (launch and suspend applications), provides session status query and disconnect functionality.
+- **Script Management**: Built-in script builder, supports user custom script injection, provides script list query, content viewing, and reset functionality.
+- **Log Capture**: Automatically redirect target process `console.log` to MCP message buffer, supports incremental Hook log retrieval.
 
-### 3. Frida Server Automation
-- **Android Support**: Automatic management of `frida-server` on Android (start, stop, status check, ADB port forwarding).
-- **Windows Support**: Support for managing local `frida-server` on Windows.
-- **Highly Customizable**: Support for custom `frida-server` file paths, binary names, and listening ports.
+### 3. Specialized Hook Script Library
+Pre-built practical Hook scripts for different platforms:
+- **Android Specialization**: Anti-DexHelper detection (hook clone/pthread/nop critical threads), SSL/TLS network traffic interception (libssl), clone system call monitoring, Activity lifecycle tracking.
+- **Windows Specialization**: API call monitoring, registry operation monitoring, file operation monitoring (supports fine-grained or full monitoring), executable memory allocation monitoring (auto-dump suspicious RX/RWX memory).
+- **General Tools**: Module Export function enumeration (supports *.so and *.dll).
 
-### 4. Flexible Configuration Management
-- **Layered Configuration**: Support for global configuration (`config.json`) and project-specific configuration (`frida.mcp.config.json`).
-- **Runtime Configuration**: Provides a set of `config_` tools to modify settings, save states, or initialize new projects on the fly without restarting.
-- **Remote Support**: When the MCP host is set to `0.0.0.0`, `config_init` automatically optimizes the configuration storage logic.
+### 4. Frida Server Automation
+Simplifies Frida runtime environment deployment and management:
+- **Android**: Automatic management of `frida-server` on devices (start, stop, status check, ADB port forwarding).
+- **Windows**: Supports start, stop, and status check for local `frida-server`.
+- **Flexible Configuration**: Supports customizing frida-server file path, name, and listening port.
+
+### 5. Layered Configuration and Remote Support
+- **Configuration System**: Supports hierarchical management of global configuration and project-specific configuration, allows dynamic configuration modification at runtime with optional persistence to specified levels.
+- **Remote Access**: When MCP service binds to `0.0.0.0`, supports remote HTTP connections, configuration files are automatically optimized for storage logic to ensure multi-device access consistency.
 
 ## Quick Start
 
@@ -49,80 +55,83 @@ pip install -r requirements.txt
 ```bash
 python src/frida_mcp/frida_mcp.py
 ```
-By default, the server starts at `127.0.0.1:8032`.
+By default, the server will start at `127.0.0.1:8032`.
 
 ## Available Tools (MCP Tools)
 
 ### Configuration Management
-- `config_get` (resource: `frida://config`): Get active configuration and paths/existence of global and project config files.
-- `config_set`: Update in-memory configuration (`server_path`, `server_name`, `server_port`, `device_id`, `adb_path`, `os`). `os` accepts only `Android` or `Windows`. Use `save_to=('global'|'project')` to persist immediately.
-- `config_init`: Initialize or switch the project config path and write the active config. In `0.0.0.0` mode, saves under the global directory automatically.
-- `config_save`: Persist the current active memory configuration to the current project config file.
+- `config_get` (resource: `frida://config`): Get current active configuration and global/project configuration file paths and existence.
+- `config_set`: Update memory configuration (supports `server_path`, `server_name`, `server_port`, `device_id`, `adb_path`, `os`). `os` only allows `Android` or `Windows`; can be persisted immediately via `save_to=('global'|'project')`.
+- `config_init`: Initialize/switch project configuration file path and write current active configuration; automatically saves to global directory in `0.0.0.0` mode.
+- `config_save`: Save current active memory configuration to current project configuration file.
 
 ### Frida Server Management
-- `start_android_frida_server`: Start frida-server on Android (`config.os=Android` required).
-- `stop_android_frida_server`: Stop frida-server on Android (`config.os=Android` required).
-- `check_android_frida_status`: Check whether frida-server is running on Android (`config.os=Android` required).
-- `start_windows_frida_server`: Start local frida-server on Windows (`config.os=Windows` required).
-- `stop_windows_frida_server`: Stop local frida-server on Windows (`config.os=Windows` required).
-- `check_windows_frida_status`: Check whether local frida-server is running on Windows (`config.os=Windows` required).
-- `check_frida_status`: Auto-detect and check frida-server status based on current `os`.
+- `start_android_frida_server`: Start frida-server on Android device (requires `config.os=Android`).
+- `stop_android_frida_server`: Stop frida-server on Android device (requires `config.os=Android`).
+- `check_android_frida_status`: Check if Android frida-server is running (requires `config.os=Android`).
+- `start_windows_frida_server`: Start local frida-server on Windows (requires `config.os=Windows`).
+- `stop_windows_frida_server`: Stop local frida-server on Windows (requires `config.os=Windows`).
+- `check_windows_frida_status`: Check if local frida-server on Windows is running (requires `config.os=Windows`).
+- `check_frida_status`: Automatically detect frida-server running status for the current platform based on `os`.
 
 ### Device and Application Tools
-- `enumerate_devices`: List all connected devices (id/name/type).
+- `enumerate_devices`: List all connected devices (ID/Name/Type).
 - `get_device`: Get specified device information.
-- `get_usb_device`: Get the current USB device information.
-- `get_local_device`: Get the local device information (Windows).
+- `get_usb_device`: Get current USB device information.
+- `get_local_device`: Get local device information (Windows).
 - `list_applications`: List installed applications, including `identifier/name/pid?`.
-- `get_frontmost_application`: Get the current frontmost application.
+- `get_frontmost_application`: Get current foreground application information.
 
 ### Process Management
-- `enumerate_processes`: List processes running on the device (when not specified: Windows uses local device, others use USB).
-- `get_process_by_name`: Fuzzy-match a process by name (returns `found`, `pid`, `name`).
+- `enumerate_processes`: List running processes on the device (when not specified: Windows uses local device, others use USB).
+- `get_process_by_name`: Fuzzy match process by name (returns `found`, `pid`, `name`).
 - `resume_process`: Resume a suspended process.
 - `kill_process`: Terminate a running process.
 
-### Process Operations & Injection
-- `attach`: Attach to a running process (PID/package name).
-- `spawn`: Launch an application (suspended state) and inject, will automatically resume when inject and run.
+### Process Operation and Session Management
+- `attach`: Attach to a running process (PID/Package name), establish session connection.
+- `spawn`: Launch application (suspended state) and attach, establish session connection.
+- `detach`: Disconnect current active session.
+- `get_session_info`: Get current active session information (target/pid).
 
 ### Log Management
-- `get_messages`: Get a snapshot of the global Hook/Log buffer.
-- `get_new_messages`: Get all log data between the last output and now.
-
-### Session Management
-- `detach`: Disconnect the current session.
-- `get_session_info`: Get information about the current active session.
+- `get_messages`: Get global Hook/Log text buffer snapshot (non-consuming mode).
+- `get_new_messages`: Get all log data from last output to current moment (recommended for priority use).
 
 ### Script Management
-- `get_script_list`: Get a list of all available built-in script filenames under the current injector.
-- `get_script_now`: Get the currently built script in the injector.
-- `reset_script_now`: Reset the script in the current injector.
-- `inject_user_script_run`: Inject and run user-defined scripts (string format).
-- `inject_user_script_run_all`: Inject and run user-defined scripts (file path format).
+- `get_script_list`: Get list of all available built-in script file names under current injector.
+- `get_script_now`: Get the already built script content in current injector.
+- `reset_script_now`: Reset script in current injector, restore to initial state.
+- `inject_user_script_run`: Inject and run user custom script (string form), only executes the injected part.
+- `inject_user_script_run_all`: Inject and run user custom script, executes all content in ScriptManager.
 
-### Android-Specific Script Tools
-- `android_load_script_anti_DexHelper_hook_clone`: Load Android platform anti-DexHelper detection script (hook clone).
-- `android_load_script_anti_DexHelper_hook_pthread`: Load Android platform anti-DexHelper detection script (hook pthread).
-- `android_load_script_anti_DexHelper`: Load Android platform anti-DexHelper detection script (nop key threads).
-- `android_load_hook_net_libssl`: Load Android platform network library SSL hook script.
-- `android_load_hook_clone`: Load Android platform clone system call hook script.
-- `android_load_hook_activity`: Load Android platform Activity lifecycle hook script.
+### General Utility Scripts
+- `util_load_module_enumerateExports`: Enumerate all Export functions in a module, works in both Android (*.so) and Windows (*.dll) environments.
 
-### Windows-Specific Script Tools
+### Android-specific Script Tools
+- `android_load_script_anti_DexHelper_hook_clone`: Load Android anti-DexHelper detection script (hook clone).
+- `android_load_script_anti_DexHelper_hook_pthread`: Load Android anti-DexHelper detection script (hook pthread).
+- `android_load_script_anti_DexHelper`: Load Android anti-DexHelper detection script (nop critical threads), requires hook address list.
+- `android_load_hook_net_libssl`: Load Android network library SSL Hook script (http/https).
+- `android_load_hook_clone`: Load Android clone system call Hook script, used to counter detection of specified SO files.
+- `android_load_hook_activity`: Load Android Activity lifecycle Hook script.
+
+### Windows-specific Script Tools
 - `windows_load_monitor_api`: Load Windows platform API monitoring script.
-- `windows_load_monitor_registry`: Load Windows platform registry monitoring script.
-- `windows_load_monitor_file`: Load Windows platform file monitoring script.
+- `windows_load_monitor_registry`: Load Windows platform registry monitoring script, supports various registry APIs.
+- `windows_load_monitor_file`: Load Windows platform file monitoring script, supports various file operation APIs.
+- `windows_fast_load_all_monitor_file`: Load all file monitoring APIs for Windows platform, may generate extremely large amounts of log information, use with caution.
+- `windows_fast_load_monitor_memory_alloc`: Load Windows platform memory allocation monitoring script, automatically dumps memory when RX/RWX executable memory is detected and executed, use with caution.
 
 ### Resources (MCP Resources)
-- `frida://version`: Return the current Frida version string.
-- `frida://config`: Return active configuration and config file path information.
+- `frida://version`: Return current Frida and frida-mcp version information.
+- `frida://config`: Return active configuration and configuration file path information.
 
 ## Remote Connection and HTTP Protocol
-When `MCP_HOST` is set to `0.0.0.0`, the server listens on all network interfaces.
-- **Transport**: Uses the `streamable-http` transport protocol.
-- **Client Configuration**: Configure the remote server URL, e.g., `http://<SERVER_IP>:8032/mcp`.
-- **Note**: `config_init` helps manage configuration files automatically in remote mode for consistency.
+When `MCP_HOST` is set to `0.0.0.0`, the server will listen on all network interfaces.
+- **Transport**: Uses `streamable-http` transport protocol.
+- **Client Configuration**: In the client, you need to configure the remote server URL, e.g., `http://<serverIP>:8032/mcp`.
+- **Note**: Using `config_init` can automatically manage configuration files in remote mode, ensuring consistency.
 
 ---
-*Note: This project is intended for research and educational purposes only. Please use it in compliance with relevant laws and regulations.*
+*Note: This project is for technical research and learning purposes only. Please use it in compliance with relevant laws and regulations.*

@@ -16,27 +16,33 @@
 
 ## 核心功能
 
-### 1. 设备与进程管理
-- **设备枚举**: 列出所有连接的 USB、本地或远程设备。
-- **进程管理**: 实时列出目标设备上运行的所有进程，支持按名称搜索进程。
-- **应用列表**: 获取设备上已安装的应用程序信息（包名、名称等）。
-- **前台应用识别**: 自动获取当前设备最前端运行的应用程序。
+### 1. 跨平台设备与进程管理
+统一支持 Android 和 Windows 平台的设备与进程操作：
+- **设备管理**: 枚举 USB、本地或远程设备，获取设备基本信息。
+- **进程管理**: 列出运行中的进程，支持按名称搜索、恢复挂起进程和终止进程。
+- **应用管理**: 获取已安装应用列表、前台应用信息，支持通过包名操作应用。
 
-### 2. 动态注入与 Hook
-- **Attach 模式**: 附加到正在运行的进程进行实时调试。
-- **Spawn 模式**: 拉起并挂起应用，在应用启动的第一时间注入脚本。
-- **脚本管理**: 支持直接输入 JS 代码字符串或通过绝对路径加载 `.js` 脚本文件。
-- **日志输出**: 自动重定向 `console.log` 到 MCP 消息缓冲区，支持实时获取 Hook 日志。
+### 2. 动态调试与脚本注入
+提供完整的动态调试生命周期管理：
+- **会话管理**: 支持 Attach 模式（附加运行中进程）和 Spawn 模式（拉起并挂起应用），提供会话状态查询和断开功能。
+- **脚本管理**: 内置脚本构建器，支持用户自定义脚本注入，提供脚本列表查询、内容查看和重置功能。
+- **日志捕获**: 自动重定向目标进程的 `console.log` 到 MCP 消息缓冲区，支持增量获取 Hook 日志。
 
-### 3. Frida Server 自动化
-- **Android 支持**: 自动管理 Android 上的 `frida-server`（启动、停止、状态检查、ADB 端口转发）。
-- **Windows 支持**: 支持 Windows 本地 `frida-server` 的管理。
-- **高度可定制**: 支持自定义 `frida-server` 的文件路径、名称及监听端口。
+### 3. 专用 Hook 脚本库
+针对不同平台预置了多种实用 Hook 脚本：
+- **Android 专项**: 反 DexHelper 检测（hook clone/pthread/nop 关键线程）、SSL/TLS 网络流量拦截（libssl）、clone 系统调用监控、Activity 生命周期追踪。
+- **Windows 专项**: API 调用监控、注册表操作监控、文件操作监控（支持细粒度或全量监控）、可执行内存分配监控（自动 dump 可疑 RX/RWX 内存）。
+- **通用工具**: 模块 Export 函数枚举（支持 *.so 和 *.dll）。
 
-### 4. 灵活的配置管理
-- **分层配置**: 支持全局配置 (`config.json`) 和项目特定配置 (`frida.mcp.config.json`)。
-- **运行时配置**: 提供一系列 `config_` 工具，可在不重启服务器的情况下即时修改配置、保存状态或初始化新项目。
-- **远程支持**: 当 MCP 启动地址设为 `0.0.0.0` 时，调用`config_init` 会自动优化配置文件存储逻辑。
+### 4. Frida Server 自动化
+简化 Frida 运行环境的部署与管理：
+- **Android**: 自动管理设备上的 `frida-server`（启动、停止、状态检查、ADB 端口转发）。
+- **Windows**: 支持本地 `frida-server` 的启动、停止和状态检查。
+- **灵活配置**: 支持自定义 frida-server 的文件路径、名称及监听端口。
+
+### 5. 分层配置与远程支持
+- **配置体系**: 支持全局配置和项目特定配置的分层管理，可在运行时动态修改配置并选择性地持久化到指定层级。
+- **远程访问**: 当 MCP 服务绑定到 `0.0.0.0` 时，支持远程 HTTP 连接，配置文件会自动优化存储逻辑以确保多设备访问一致性。
 
 ## 快速开始
 
@@ -82,40 +88,43 @@ python src/frida_mcp/frida_mcp.py
 - `resume_process`: 恢复被挂起的进程。
 - `kill_process`: 终止正在运行的进程。
 
-### 进程操作与注入
-- `attach`: 附加到运行中的进程（PID/包名）。
-- `spawn`: 拉起应用（挂起态）并注入，等待 inject 并运行时会自动 resume。
+### 进程操作与会话管理
+- `attach`: 附加到运行中的进程（PID/包名），建立 session 连接。
+- `spawn`: 拉起应用（挂起态）并附加，建立 session 连接。
+- `detach`: 断开当前活跃的 session 连接。
+- `get_session_info`: 获取当前活跃的 session 信息（target/pid）。
 
 ### 日志管理
-- `get_messages`: 获取全局 Hook/Log 文本缓冲快照。
-- `get_new_messages`: 获取上次输出到此刻之间的所有 log 数据。
-
-### 会话管理
-- `detach`: 断开当前会话连接。
-- `get_session_info`: 获取当前活跃的session信息。
+- `get_messages`: 获取全局 Hook/Log 文本缓冲快照（非消费模式）。
+- `get_new_messages`: 获取上次输出到此刻之间的所有 log 数据（推荐优先使用）。
 
 ### 脚本管理
 - `get_script_list`: 获得当前 injector 下所有可用的内置 script 文件名列表。
-- `get_script_now`: 获得当前 injector 中已经构建好的 script。
-- `reset_script_now`: 重置当前 injector 中的 script。
-- `inject_user_script_run`: 注入并运行用户自定义脚本（字符串形式）。
-- `inject_user_script_run_all`: 注入并运行用户自定义脚本（文件路径形式）。
+- `get_script_now`: 获得当前 injector 中已经构建好的 script 内容。
+- `reset_script_now`: 重置当前 injector 中的 script，恢复初始状态。
+- `inject_user_script_run`: 注入并运行用户自定义脚本（字符串形式），仅执行注入的部分。
+- `inject_user_script_run_all`: 注入并运行用户自定义脚本，执行 ScriptManager 中所有内容。
+
+### 通用工具脚本
+- `util_load_module_enumerateExports`: 枚举模块中所有的 Export 函数，Android（*.so）和 Windows（*.dll）环境下都可使用。
 
 ### Android 专用脚本工具
-- `android_load_script_anti_DexHelper_hook_clone`: 加载Android平台的反DexHelper检测脚本（hook clone）。
-- `android_load_script_anti_DexHelper_hook_pthread`: 加载Android平台的反DexHelper检测脚本（hook pthread）。
-- `android_load_script_anti_DexHelper`: 加载Android平台的反DexHelper检测脚本（nop关键线程）。
-- `android_load_hook_net_libssl`: 加载Android平台的网络库SSL Hook脚本。
-- `android_load_hook_clone`: 加载Android平台的clone系统调用Hook脚本。
-- `android_load_hook_activity`: 加载Android平台的Activity生命周期Hook脚本。
+- `android_load_script_anti_DexHelper_hook_clone`: 加载 Android 平台的反 DexHelper 检测脚本（hook clone）。
+- `android_load_script_anti_DexHelper_hook_pthread`: 加载 Android 平台的反 DexHelper 检测脚本（hook pthread）。
+- `android_load_script_anti_DexHelper`: 加载 Android 平台的反 DexHelper 检测脚本（nop 关键线程），需传入 hook 地址列表。
+- `android_load_hook_net_libssl`: 加载 Android 平台的网络库 SSL Hook 脚本（http/https）。
+- `android_load_hook_clone`: 加载 Android 平台的 clone 系统调用 Hook 脚本，用于对抗指定 SO 文件的检测。
+- `android_load_hook_activity`: 加载 Android 平台的 Activity 生命周期 Hook 脚本。
 
 ### Windows 专用脚本工具
 - `windows_load_monitor_api`: 加载 Windows 平台的 API 监控脚本。
-- `windows_load_monitor_registry`: 加载 Windows 平台的注册表监控脚本。
-- `windows_load_monitor_file`: 加载Windows平台的文件监控脚本。
+- `windows_load_monitor_registry`: 加载 Windows 平台的注册表监控脚本，支持多种注册表 API。
+- `windows_load_monitor_file`: 加载 Windows 平台的文件监控脚本，支持多种文件操作 API。
+- `windows_fast_load_all_monitor_file`: 加载 Windows 平台的所有文件监控 API，可能造成极大量的 log 信息，请谨慎使用。
+- `windows_fast_load_monitor_memory_alloc`: 加载 Windows 平台的内存分配监控脚本，检测到 RX/RWX 可执行内存时自动 dump，请谨慎使用。
 
 ### 资源 (MCP Resources)
-- `frida://version`: 返回当前 Frida 版本字符串。
+- `frida://version`: 返回当前 Frida 和 frida-mcp 的版本信息。
 - `frida://config`: 返回活跃配置与配置文件路径信息。
 
 ## 远程连接与 HTTP 协议

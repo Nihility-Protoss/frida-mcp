@@ -91,8 +91,8 @@ class WindowsScriptManager(ScriptManager):
     def fast_load_all_monitor_file(self) -> Dict[str, Any]:
         """
         加载所有文件监控 API 脚本，可能造成极大量的 log 信息，请谨慎使用
-        Returns:
 
+        Returns:
         """
         this_script_filename = "monitor_file_all.js"
         return self.load_script_from_file(this_script_filename)
@@ -104,9 +104,6 @@ class WindowsScriptManager(ScriptManager):
         当检测到RX/RWX类型的可执行内存时，自动dump内存
 
         Returns:
-            dict: {'error': str, 'data': str}
-                error: 错误信息，成功时为None
-                data: 构建完成的脚本
         """
         # 加载基础脚本
         this_script_base_name = "monitor_memory_alloc.js"
