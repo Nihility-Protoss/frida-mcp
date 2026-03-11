@@ -90,7 +90,7 @@ By default, the server will start at `127.0.0.1:8032`.
 
 ### Process Operation and Session Management
 - `attach`: Attach to a running process (PID/Package name), establish session connection.
-- `spawn`: Launch application (suspended state) and attach, establish session connection.
+- `spawn`: Launch application (suspended state) and attach, establish session connection, supports passing startup arguments (e.g., `--arg1 value1`).
 - `detach`: Disconnect current active session.
 - `get_session_info`: Get current active session information (target/pid).
 

@@ -90,7 +90,7 @@ python src/frida_mcp/frida_mcp.py
 
 ### 进程操作与会话管理
 - `attach`: 附加到运行中的进程（PID/包名），建立 session 连接。
-- `spawn`: 拉起应用（挂起态）并附加，建立 session 连接。
+- `spawn`: 拉起应用（挂起态）并附加，建立 session 连接，支持传入启动参数（如 `--arg1 value1`）。
 - `detach`: 断开当前活跃的 session 连接。
 - `get_session_info`: 获取当前活跃的 session 信息（target/pid）。
 
