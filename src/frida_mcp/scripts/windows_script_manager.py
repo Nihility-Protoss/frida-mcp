@@ -94,7 +94,12 @@ class WindowsScriptManager(ScriptManager):
 
         Returns:
         """
+        this_script_base_name = "monitor_file.js"
+        if this_script_base_name not in self.name:
+            self.load_script_from_file(this_script_base_name)
         this_script_filename = "monitor_file_all.js"
+        if this_script_filename in self.name:
+            return {'error': None, 'data': self.open_script}
         return self.load_script_from_file(this_script_filename)
 
     def fast_load_monitor_memory_alloc(self) -> Dict[str, Any]:
@@ -106,8 +111,10 @@ class WindowsScriptManager(ScriptManager):
         Returns:
         """
         # 加载基础脚本
-        this_script_base_name = "monitor_memory_alloc.js"
-        return self.load_script_from_file(this_script_base_name)
+        this_script_filename = "monitor_memory_alloc.js"
+        if this_script_filename in self.name:
+            return {'error': None, 'data': self.open_script}
+        return self.load_script_from_file(this_script_filename)
 
 
 if __name__ == '__main__':

@@ -24,8 +24,8 @@ except ImportError:
 DEFAULT_URL = "http://192.168.40.129:8032/mcp"
 
 # 目标进程配置
-target_package: str = r"C:\Windows\System32\notepad.exe"  # 程序路径
-target_args: str = ""  # 启动参数，如 "test.txt --arg1 value1"
+target_package: str = r"D:\tools\Ez_ShellcodeRun.x64.exe"  # 程序路径
+target_args: str = r"D:\tools\Ez_ShellcodeRun.x64.exe.i64"  # 启动参数
 
 
 async def test_spawn(client: Client, package_name: str, args: str = "") -> Dict[str, Any]:
@@ -62,35 +62,6 @@ async def test_spawn(client: Client, package_name: str, args: str = "") -> Dict[
         return {"status": "error", "message": str(e)}
 
 
-async def test_get_new_messages(client: Client) -> Dict[str, Any]:
-    """测试获取新消息"""
-    print(f"[*] Testing get_new_messages...")
-    try:
-        result = await client.call_tool("get_new_messages")
-
-        if hasattr(result, 'content') and result.content:
-            messages_result = json.loads(result.content[0].text)
-            print(f"[+] Get new messages result:")
-            for i in messages_result['messages']:
-                print(f"[+] {i}")
-
-            if messages_result.get('status') == 'success':
-                messages = messages_result.get('messages', [])
-                remaining = messages_result.get('remaining', 0)
-                print(f"[+] Retrieved {len(messages)} new messages, {remaining} remaining")
-                return {"status": "success", "messages": messages, "remaining": remaining}
-            else:
-                print(f"[-] Failed to get new messages: {messages_result.get('message', 'Unknown error')}")
-                return {"status": "error", "message": messages_result.get('message', 'Unknown error')}
-        else:
-            print(f"[!] Unexpected response: {result}")
-            return {"status": "error", "message": "Invalid response format"}
-
-    except Exception as e:
-        print(f"[-] get_new_messages failed: {e}")
-        return {"status": "error", "message": str(e)}
-
-
 async def test_windows_fast_load_all_monitor_file(client: Client) -> Dict[str, Any]:
     """测试 Windows 全量文件监控（谨慎使用）"""
     print(f"[*] Testing windows_fast_load_all_monitor_file...")
@@ -98,7 +69,7 @@ async def test_windows_fast_load_all_monitor_file(client: Client) -> Dict[str, A
     try:
         result = await client.call_tool(
             "windows_fast_load_all_monitor_file",
-            arguments={"run_script_bool": True})
+            arguments={"run_script_bool": False})
 
         if hasattr(result, 'content') and result.content:
             load_result = json.loads(result.content[0].text)
@@ -126,7 +97,7 @@ async def test_windows_fast_load_monitor_memory_alloc(client: Client) -> Dict[st
     try:
         result = await client.call_tool(
             "windows_fast_load_monitor_memory_alloc",
-            arguments={"run_script_bool": True})
+            arguments={"run_script_bool": False})
 
         if hasattr(result, 'content') and result.content:
             load_result = json.loads(result.content[0].text)
@@ -147,28 +118,56 @@ async def test_windows_fast_load_monitor_memory_alloc(client: Client) -> Dict[st
         return {"status": "error", "message": str(e)}
 
 
-async def test_detach(client: Client) -> Dict[str, Any]:
-    """测试断开会话"""
-    print(f"[*] Testing detach...")
+async def test_get_script_now(client: Client) -> Dict[str, Any]:
+    """测试获取当前脚本"""
+    print(f"[*] Testing get_script_now...")
     try:
-        result = await client.call_tool("detach")
+        result = await client.call_tool("get_script_now")
 
         if hasattr(result, 'content') and result.content:
-            detach_result = json.loads(result.content[0].text)
-            print(f"[+] Detach result: {detach_result}")
+            script_result = json.loads(result.content[0].text)
+            print(f"[+] Current script info: {script_result.get('message', 'N/A')}...")
 
-            if detach_result.get('status') == 'success':
-                print(f"[+] Successfully detached")
-                return {"status": "success", "message": detach_result.get('message', 'Detach successful')}
+            if script_result.get('status') == 'success':
+                return {"status": "success", "script": script_result}
             else:
-                print(f"[-] Failed to detach: {detach_result.get('message', 'Unknown error')}")
-                return {"status": "error", "message": detach_result.get('message', 'Unknown error')}
+                print(f"[-] Failed to get script: {script_result.get('message', 'Unknown error')}")
+                return {"status": "error", "message": script_result.get('message', 'Unknown error')}
         else:
             print(f"[!] Unexpected response: {result}")
             return {"status": "error", "message": "Invalid response format"}
 
     except Exception as e:
-        print(f"[-] detach failed: {e}")
+        print(f"[-] get_script_now failed: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+async def test_inject_user_script_run_all(client: Client, script_content: str = "") -> Dict[str, Any]:
+    """测试注入并运行所有脚本（传入空 script 触发已加载的脚本）"""
+    print(f"[*] Testing inject_user_script_run_all...")
+    if not script_content:
+        print(f"[*] Triggering all loaded scripts with empty script content")
+    try:
+        result = await client.call_tool(
+            "inject_user_script_run_all",
+            arguments={"script_content": script_content})
+
+        if hasattr(result, 'content') and result.content:
+            inject_result = json.loads(result.content[0].text)
+            print(f"[+] Inject result: {inject_result}")
+
+            if inject_result.get('status') == 'success':
+                print(f"[+] Successfully injected and executed scripts")
+                return {"status": "success", "message": inject_result.get('message', 'Inject successful')}
+            else:
+                print(f"[-] Failed to inject: {inject_result.get('message', 'Unknown error')}")
+                return {"status": "error", "message": inject_result.get('message', 'Unknown error')}
+        else:
+            print(f"[!] Unexpected response: {result}")
+            return {"status": "error", "message": "Invalid response format"}
+
+    except Exception as e:
+        print(f"[-] inject_user_script_run_all failed: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -198,32 +197,30 @@ async def run_all_tests(url: str):
             print("[!] Note: This will hook all file APIs and generate massive logs")
             fast_file_result = await test_windows_fast_load_all_monitor_file(client)
 
-            # 获取文件监控产生的日志
-            print("\n[Test 3] Getting logs from file monitor...")
-            file_logs_result = await test_get_new_messages(client)
-
-            # 测试 4: 内存分配监控
-            print("\n[Test 4] Testing windows_fast_load_monitor_memory_alloc...")
+            # 测试 3: 内存分配监控
+            print("\n[Test 3] Testing windows_fast_load_monitor_memory_alloc...")
             print("[!] Note: This will monitor memory allocations and auto-dump RX/RWX memory")
             fast_mem_result = await test_windows_fast_load_monitor_memory_alloc(client)
 
-            # 获取内存监控产生的日志
-            print("\n[Test 5] Getting logs from memory monitor...")
-            mem_logs_result = await test_get_new_messages(client)
+            # 测试 4: 获取当前脚本
+            print("\n[Test 4] Getting current script...")
+            get_script_result = await test_get_script_now(client)
 
-            # 测试 6: Detach
-            print("\n[Test 6] Testing detach...")
-            detach_result = await test_detach(client)
+            # 测试 5: 注入并运行所有已加载的脚本（传入空 script 触发）
+            print("\n[Test 5] Injecting and running all loaded scripts...")
+            inject_all_result = await test_inject_user_script_run_all(client, "")
+
+            # 断开对话
+            detach_result = await client.call_tool("detach")
 
             # 总结
             print("\n" + "=" * 50)
             print("Test Summary:")
             print(f"- spawn: {'✓' if spawn_result['status'] == 'success' else '✗'}")
             print(f"- windows_fast_load_all_monitor_file: {'✓' if fast_file_result['status'] == 'success' else '✗'}")
-            print(f"- get_new_messages (file logs): {'✓' if file_logs_result['status'] == 'success' else '✗'}")
             print(f"- windows_fast_load_monitor_memory_alloc: {'✓' if fast_mem_result['status'] == 'success' else '✗'}")
-            print(f"- get_new_messages (mem logs): {'✓' if mem_logs_result['status'] == 'success' else '✗'}")
-            print(f"- detach: {'✓' if detach_result['status'] == 'success' else '✗'}")
+            print(f"- get_script_now: {'✓' if get_script_result['status'] == 'success' else '✗'}")
+            print(f"- inject_user_script_run_all: {'✓' if inject_all_result['status'] == 'success' else '✗'}")
             print("=" * 50)
 
     except Exception as e:

@@ -130,7 +130,7 @@ def _load_platform_script(
         platform: str,
         load_method_name: str,
         load_func,
-        run_script_bool: bool = True,
+        run_script_bool: bool = False,
         **kwargs
 ) -> Dict[str, Any]:
     """
@@ -1092,7 +1092,7 @@ def util_load_module_enumerateExports(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper_hook_clone(
-        run_script_bool: bool = True,
+        run_script_bool: bool = False,
 ) -> Dict[str, Any]:
     """
     加载对抗 libDexHelper.so 的 hook clone 代码到即将运行的 script 中，并选择是否立即执行
@@ -1113,7 +1113,7 @@ def android_load_script_anti_DexHelper_hook_clone(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper_hook_pthread(
-        run_script_bool: bool = True,
+        run_script_bool: bool = False,
 ) -> Dict[str, Any]:
     """
     加载对抗 libDexHelper.so 的 hook pthread 代码到即将运行的 script 中，并选择是否立即执行
@@ -1135,7 +1135,7 @@ def android_load_script_anti_DexHelper_hook_pthread(
 @mcp.tool()
 def android_load_script_anti_DexHelper(
         hook_addr_list: List[int],
-        run_script_bool: bool = True,
+        run_script_bool: bool = False,
 ) -> Dict[str, Any]:
     """
     加载对抗 libDexHelper.so 的 代码到即将运行的 script 中，并选择是否立即执行
@@ -1159,7 +1159,7 @@ def android_load_script_anti_DexHelper(
 
 @mcp.tool()
 def android_load_hook_net_libssl(
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载Android平台的 http/https Hook脚本，直接hook底层代码，直接拿到数据
@@ -1182,7 +1182,7 @@ def android_load_hook_net_libssl(
 @mcp.tool()
 def android_load_hook_clone(
         anti_so_name_tag: str = "DexHelper",
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载Android平台的hook clone脚本，用于对抗指定SO文件的检测
@@ -1207,7 +1207,7 @@ def android_load_hook_clone(
 def android_load_hook_activity(
         package_name: str,
         activity_name: str,
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载Android平台的Activity生命周期Hook脚本
@@ -1236,7 +1236,7 @@ def android_load_hook_activity(
 def windows_load_monitor_api(
         module_name: str,
         api_name: str,
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载 Windows 平台的 API 监控脚本
@@ -1263,7 +1263,7 @@ def windows_load_monitor_api(
 def windows_load_monitor_registry(
         api_name: str,
         registry_path: str = "",
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载Windows平台的注册表监控脚本
@@ -1313,7 +1313,7 @@ def windows_load_monitor_registry(
 def windows_load_monitor_file(
         api_name: str,
         file_path: str = "",
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载Windows平台的文件监控脚本
@@ -1362,7 +1362,7 @@ def windows_load_monitor_file(
 
 @mcp.tool()
 def windows_fast_load_all_monitor_file(
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载 Windows 平台的所有文件监控 API，可能造成极大量的 log 信息，请谨慎使用
@@ -1384,7 +1384,7 @@ def windows_fast_load_all_monitor_file(
 
 @mcp.tool()
 def windows_fast_load_monitor_memory_alloc(
-        run_script_bool: bool = True
+        run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
     加载 Windows 平台的内存分配监控脚本，可能造成极大量的 log 信息，请谨慎使用

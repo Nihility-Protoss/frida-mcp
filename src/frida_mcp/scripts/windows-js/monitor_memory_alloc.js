@@ -97,30 +97,35 @@ function isWritableProtection(protect) {
  * 发送内存dump请求
  */
 function requestMemoryDump(address, size, apiName, reason, extraInfo) {
-    const timestamp = Date.now();
-    const pid = Process.id;
-    const filename = `mem_${apiName}_${pid}_${timestamp}_0x${address.toString(16)}_0x${size.toString(16)}.bin`;
+    const MAX_DUMP_SIZE = 10 * 1024 * 1024; // 最大 dump 10MB
+    
+    // 限制 dump 大小
+    let actualSize = size;
+    if (size > MAX_DUMP_SIZE) {
+        console.log(`[MemoryMonitor] Region too large (${(size / 1024 / 1024).toFixed(2)}MB), dump limited to 10MB`);
+        actualSize = MAX_DUMP_SIZE;
+    }
+    
+    const filename = `mem_${apiName}_${Process.id}_${Date.now()}_0x${address.toString(16)}.bin`;
     
     // 读取内存数据
     let memoryData = null;
     try {
-        memoryData = Memory.readByteArray(address, size);
+        memoryData = Memory.readByteArray(address, actualSize);
     } catch (e) {
         console.log(`[MemoryMonitor] Failed to read memory at 0x${address.toString(16)}: ${e.message}`);
+        return null;
     }
     
+    // 只发送 Python 端需要的字段
     send({
         type: "memory_dump",
         filename: filename,
-        address: address.toString(),
-        size: size,
-        api: apiName,
-        reason: reason,
-        extraInfo: extraInfo || {},
-        timestamp: timestamp,
-        pid: pid
-    }, memoryData);  // 第二个参数传递二进制数据
+        pid: Process.id
+    }, memoryData);
     
+    // 其他信息以单行日志形式输出
+    console.log(`[MemoryMonitor] Dump info: addr=0x${address.toString(16)}, size=${actualSize}${size > MAX_DUMP_SIZE ? '/' + size : ''}, api=${apiName}, reason=${reason}`);
     return filename;
 }
 
@@ -128,16 +133,17 @@ function requestMemoryDump(address, size, apiName, reason, extraInfo) {
  * 发送可执行内存告警
  */
 function sendExecutableAlert(address, size, protection, apiName, action, extraInfo) {
-    send({
-        type: "executable_memory_alert",
-        api: apiName,
-        address: address.toString(),
-        size: size,
-        protection: parseMemoryProtection(protection),
-        action: action,
-        extraInfo: extraInfo || {},
-        timestamp: Date.now()
-    });
+    let logMsg = "[EXECUTABLE_MEMORY_ALERT]\n" +
+        "  API: " + apiName + "\n" +
+        "  Address: " + address.toString() + "\n" +
+        "  Size: " + size + "\n" +
+        "  Protection: " + parseMemoryProtection(protection) + "\n" +
+        "  Action: " + action + "\n" +
+        "  Timestamp: " + Date.now();
+    if (extraInfo) {
+        logMsg += "\n  ExtraInfo: " + JSON.stringify(extraInfo);
+    }
+    console.log(logMsg);
 }
 
 /**
@@ -312,6 +318,11 @@ function createMemoryAllocOnEnter(apiName) {
             allocType,
             isExecutableRequest: isExecutableProtection(protect)
         };
+        
+        // 输出当前API调用信息
+        const protStr = parseMemoryProtection(protect);
+        const typeStr = allocType ? parseAllocationType(allocType) : '-';
+        console.log(`[MemoryMonitor] ${apiName}: addr=${address.toString()}, size=${size}, prot=${protStr}, type=${typeStr}`);
     };
 }
 
