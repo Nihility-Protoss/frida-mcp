@@ -190,7 +190,7 @@ class BaseInjector(ABC):
         
         Args:
             payload: 消息payload，包含filename, address, size等信息
-            data: 二进制内存数据
+            data: 二进制内存数据（由JS端读取并发送）
         """
         from datetime import datetime
         

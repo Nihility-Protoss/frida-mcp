@@ -101,6 +101,14 @@ function requestMemoryDump(address, size, apiName, reason, extraInfo) {
     const pid = Process.id;
     const filename = `mem_${apiName}_${pid}_${timestamp}_0x${address.toString(16)}_0x${size.toString(16)}.bin`;
     
+    // 读取内存数据
+    let memoryData = null;
+    try {
+        memoryData = Memory.readByteArray(address, size);
+    } catch (e) {
+        console.log(`[MemoryMonitor] Failed to read memory at 0x${address.toString(16)}: ${e.message}`);
+    }
+    
     send({
         type: "memory_dump",
         filename: filename,
@@ -111,7 +119,7 @@ function requestMemoryDump(address, size, apiName, reason, extraInfo) {
         extraInfo: extraInfo || {},
         timestamp: timestamp,
         pid: pid
-    });
+    }, memoryData);  // 第二个参数传递二进制数据
     
     return filename;
 }
@@ -130,6 +138,22 @@ function sendExecutableAlert(address, size, protection, apiName, action, extraIn
         extraInfo: extraInfo || {},
         timestamp: Date.now()
     });
+}
+
+/**
+ * 从上下文获取返回地址（x86/x64）
+ */
+function getReturnAddress(context) {
+    try {
+        // x64: 返回地址在 [rsp]，x86: 返回地址在 [esp]
+        const sp = context.rsp || context.esp;
+        if (sp) {
+            return Memory.readPointer(sp);
+        }
+    } catch (e) {
+        // 读取失败
+    }
+    return null;
 }
 
 /**
@@ -158,6 +182,10 @@ function monitorFirstExecution(address, size, apiName, originalInfo) {
                     region.status = 'dumped';
                     trackedMemoryRegions.set(addrStr, region);
                     
+                    // 获取返回地址
+                    const returnAddr = getReturnAddress(this.context);
+                    const callerStr = returnAddr ? returnAddr.toString() : 'unknown';
+                    
                     // 请求dump
                     requestMemoryDump(
                         address, 
@@ -166,12 +194,12 @@ function monitorFirstExecution(address, size, apiName, originalInfo) {
                         "First execution intercepted",
                         {
                             originalProtect: parseMemoryProtection(region.originalProtect),
-                            caller: this.returnAddress ? this.returnAddress.toString() : 'unknown'
+                            caller: callerStr
                         }
                     );
                     
                     sendExecutableAlert(address, size, region.originalProtect, apiName, "dump_on_first_execute", {
-                        caller: this.returnAddress ? this.returnAddress.toString() : 'unknown'
+                        caller: callerStr
                     });
                     
                     // 执行一次后可以选择detach
@@ -432,10 +460,7 @@ function monitorMemoryAllocApis(apiNames) {
     });
 
     // 只发送一次初始化完成消息
-    send({
-        type: "log",
-        message: `[MemoryMonitor] Initialized, monitoring ${apisToMonitor.length} APIs: ${apisToMonitor.join(", ")}`
-    });
+    console.log(`[MemoryMonitor] Initialized, monitoring ${apisToMonitor.length} APIs: ${apisToMonitor.join(", ")}`);
 }
 
 // ==================== 启动监控 ====================

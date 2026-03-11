@@ -1354,7 +1354,7 @@ def windows_load_monitor_file(
 
 
 @mcp.tool()
-def windows_load_monitor_file(
+def windows_fast_load_all_monitor_file(
         run_script_bool: bool = True
 ) -> Dict[str, Any]:
     """
@@ -1373,6 +1373,30 @@ def windows_load_monitor_file(
         injector.script_manager.fast_load_all_monitor_file,
         run_script_bool,
     )
+
+
+@mcp.tool()
+def windows_fast_load_monitor_memory_alloc(
+        run_script_bool: bool = True
+) -> Dict[str, Any]:
+    """
+    加载 Windows 平台的内存分配监控脚本，可能造成极大量的 log 信息，请谨慎使用
+    当检测到RX/RWX类型的可执行内存、执行到该内存段时，自动dump内存
+
+    Args:
+        run_script_bool: 若为True则在加载后立即执行脚本
+
+    Returns:
+        {status, message}
+    """
+
+    return _load_platform_script(
+        "Windows",
+        "fast_load_monitor_memory_alloc",
+        injector.script_manager.fast_load_monitor_memory_alloc,
+        run_script_bool,
+    )
+
 
 if __name__ == "__main__":
     # Ensure the server doesn't shut down immediately. 
