@@ -113,11 +113,11 @@ After attaching to the process the AI may construct the script to be injected.
 
 ### Script Management
 
-- `get_script_list` – list available built-in scripts
-- `get_script_now` – retrieve the currently constructed script
-- `reset_script_now` – clear the current script
-- `inject_user_script_run` – inject and run a user script (string)
-- `inject_user_script_run_all` – inject and run a user script (file path)
+- `get_script_list`
+- `get_script_now`
+- `reset_script_now`
+- `inject_user_script_run`
+- `inject_user_script_run_all`
 
 ### Android Script Tools
 
@@ -128,11 +128,17 @@ After attaching to the process the AI may construct the script to be injected.
 - `android_load_hook_clone`
 - `android_load_hook_activity`
 
+### General Script Tools
+
+- `util_load_module_enumerateExports`
+
 ### Windows Script Tools
 
 - `windows_load_monitor_api`
 - `windows_load_monitor_registry`
 - `windows_load_monitor_file`
+- `windows_fast_load_all_monitor_file`
+- `windows_fast_load_monitor_memory_alloc`
 
 ### Script Execution Behavior
 

@@ -109,11 +109,11 @@ AI 必须通过与用户交互确定目标设备。
 
 ### 脚本管理
 
-- `get_script_list`：获取可用的内置脚本列表
-- `get_script_now`：获取当前构建中的脚本
-- `reset_script_now`：重置当前脚本
-- `inject_user_script_run`：注入并运行用户脚本（字符串）
-- `inject_user_script_run_all`：注入并运行用户脚本（文件路径）
+- `get_script_list`
+- `get_script_now`
+- `reset_script_now`
+- `inject_user_script_run`
+- `inject_user_script_run_all`
 
 ### Android 专用脚本
 
@@ -124,11 +124,17 @@ AI 必须通过与用户交互确定目标设备。
 - `android_load_hook_clone`
 - `android_load_hook_activity`
 
+### 通用脚本工具
+
+- `util_load_module_enumerateExports`
+
 ### Windows 专用脚本
 
 - `windows_load_monitor_api`
 - `windows_load_monitor_registry`
 - `windows_load_monitor_file`
+- `windows_fast_load_all_monitor_file`
+- `windows_fast_load_monitor_memory_alloc`
 
 ### 脚本执行机制
 
