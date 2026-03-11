@@ -235,12 +235,13 @@ class BaseInjector(ABC):
         pass
 
     @abstractmethod
-    async def spawn(self, target: str) -> Dict[str, Any]:
+    async def spawn(self, target: str, args: str = "") -> Dict[str, Any]:
         """
         启动进程
         
         Args:
-            target: 目标进程（包名或程序名）
+            target: 目标进程（包名或程序路径）
+            args: 启动参数（可选），如 "--arg1 value1 --arg2"
             
         Returns:
             dict: {'error': str, 'data': dict}

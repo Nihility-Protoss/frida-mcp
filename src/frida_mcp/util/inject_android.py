@@ -79,12 +79,13 @@ class AndroidInjector(BaseInjector):
         except Exception as e:
             return {'error': str(e), 'data': None}
 
-    async def spawn(self, target: str) -> Dict[str, Any]:
+    async def spawn(self, target: str, args: str = "") -> Dict[str, Any]:
         """
         启动Android应用
         
         Args:
             target: 应用包名
+            args: 启动参数（可选），如 "--arg1 value1 --arg2"
             
         Returns:
             dict: {'error': str, 'data': dict}
@@ -100,11 +101,21 @@ class AndroidInjector(BaseInjector):
             # 使用初始化时的device
             device = self.device
 
-            # 启动应用
-            pid = device.spawn(target)
+            # 构建完整包名（包含参数，用于显示）
+            full_package = target
+            
+            # 构建argv参数列表
+            if args and args.strip():
+                import shlex
+                argv = shlex.split(args.strip())
+                full_package = f"{target} {args.strip()}"
+                pid = device.spawn([target], argv=argv)
+            else:
+                pid = device.spawn(target)
+            
             self.session = device.attach(pid)
 
-            self.current_target = target
+            self.current_target = full_package
             self.current_pid = pid
             self.needs_resume = True
 
@@ -112,7 +123,7 @@ class AndroidInjector(BaseInjector):
                 'error': None,
                 'data': {
                     'pid': pid,
-                    'package': target,
+                    'program': full_package,
                     'message': 'Successfully spawned Android app (paused)'
                 }
             }

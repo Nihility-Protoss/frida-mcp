@@ -79,12 +79,13 @@ class WindowsInjector(BaseInjector):
         except Exception as e:
             return {'error': str(e), 'data': None}
 
-    async def spawn(self, target: str) -> Dict[str, Any]:
+    async def spawn(self, target: str, args: str = "") -> Dict[str, Any]:
         """
         启动Windows程序
         
         Args:
             target: 程序名称或路径
+            args: 启动参数（可选），如 "--arg1 value1 --arg2"
             
         Returns:
             dict: {'error': str, 'data': dict}
@@ -100,11 +101,22 @@ class WindowsInjector(BaseInjector):
             # 使用初始化时的device
             device = self.device
 
-            # 启动程序
-            pid = device.spawn([target])  # Frida spawn expects a list of arguments
+            # 构建完整命令（用于显示）
+            full_command = target
+            
+            # 构建argv参数列表
+            if args and args.strip():
+                import shlex
+                argv = shlex.split(args.strip())
+                full_command = f"{target} {args.strip()}"
+            else:
+                argv = []
+            
+            # 启动程序（Windows 也使用 argv 参数）
+            pid = device.spawn([target], argv=argv if argv else None)
             self.session = device.attach(pid)
 
-            self.current_target = target
+            self.current_target = full_command
             self.current_pid = pid
             self.needs_resume = True
 
@@ -112,7 +124,7 @@ class WindowsInjector(BaseInjector):
                 'error': None,
                 'data': {
                     'pid': pid,
-                    'program': target,
+                    'program': full_command,
                     'message': 'Successfully spawned Windows program (paused)'
                 }
             }

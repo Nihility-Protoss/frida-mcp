@@ -800,12 +800,16 @@ async def attach(target: str) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def spawn(package_name: str) -> Dict[str, Any]:
+async def spawn(
+    package_name: str,
+    args: str = ""
+) -> Dict[str, Any]:
     """
     拉起应用（挂起态）并附加，建立session连接。
 
     Args:
-      - package_name: 应用包名 / 应用程序地址
+      - package_name: 应用包名 / 应用程序路径
+      - args: 启动参数（可选），如 "--arg1 value1 --arg2"
 
     Returns:
       - {status, pid, package, message}
@@ -818,18 +822,21 @@ async def spawn(package_name: str) -> Dict[str, Any]:
 
     injector_init()
 
-    spawn_result = await injector.spawn(package_name.strip())
+    spawn_result = await injector.spawn(package_name.strip(), args.strip() if args else "")
     if spawn_result['error']:
         return {
             "status": "error",
             "message": spawn_result['error']
         }
 
+    # 返回的 package 字段已包含完整命令（程序 + 参数）
+    full_package = spawn_result['data'].get('program') or package_name.strip()
+
     return {
         "status": "success",
         "pid": spawn_result['data']['pid'],
-        "package": package_name.strip(),
-        "message": f"Successfully spawned {package_name.strip()}"
+        "package": full_package,
+        "message": spawn_result['data']['message']
     }
 
 
