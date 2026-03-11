@@ -322,7 +322,7 @@ function createMemoryAllocOnEnter(apiName) {
         // 输出当前API调用信息
         const protStr = parseMemoryProtection(protect);
         const typeStr = allocType ? parseAllocationType(allocType) : '-';
-        console.log(`[MemoryMonitor] ${apiName}: addr=${address.toString()}, size=${size}, prot=${protStr}, type=${typeStr}`);
+        console.log(`[+] [M] ${apiName}: addr=${address.toString()}, size=${size}, prot=${protStr}, type=${typeStr}`);
     };
 }
 
@@ -427,31 +427,39 @@ function createMemoryAllocOnLeave(apiName) {
 }
 
 /**
+ * 确定API所在的模块
+ */
+function getApiModuleName(apiName) {
+    const module_k32 = Process.getModuleByName("kernel32.dll");
+    const module_kbase = Process.getModuleByName("kernelbase.dll");
+
+    if (module_k32.findExportByName(apiName))
+        return "kernel32.dll";
+
+    if (module_kbase.findExportByName(apiName))
+        return "kernelbase.dll";
+
+    console.log(`[-] API ${apiName} not found in kernel32.dll or kernelbase.dll`);
+    return null;
+}
+
+/**
  * 监控单个内存分配API
+ * 使用 windows_base_utils.js 中的 monitorApi 函数
  */
 function monitorMemoryAllocApi(apiName, moduleName) {
+    // 如果未指定模块，自动判断
     if (!moduleName) {
-        const kernelBaseApis = ["VirtualAlloc", "VirtualAllocEx", "VirtualProtect", "VirtualProtectEx", 
-                              "HeapCreate", "HeapAlloc", "CreateFiber", "CreateFiberEx", 
-                              "MapViewOfFile", "MapViewOfFileEx"];
-        moduleName = kernelBaseApis.includes(apiName) ? "kernelbase.dll" : "kernel32.dll";
+        moduleName = getApiModuleName(apiName);
     }
 
-    try {
-        const module = Process.getModuleByName(moduleName);
-        if (!module) return;
-        
-        const apiAddress = module.getExportByName(apiName);
-        if (!apiAddress) return;
-
-        Interceptor.attach(apiAddress, {
-            onEnter: createMemoryAllocOnEnter(apiName),
-            onLeave: createMemoryAllocOnLeave(apiName)
-        });
-        
-    } catch (e) {
-        // 静默处理加载失败
-    }
+    // 使用 monitorApi 进行监控，传入自定义的 onEnter 和 onLeave 回调
+    monitorApi(
+        moduleName,
+        apiName,
+        createMemoryAllocOnEnter(apiName),
+        createMemoryAllocOnLeave(apiName)
+    );
 }
 
 /**
@@ -471,7 +479,7 @@ function monitorMemoryAllocApis(apiNames) {
     });
 
     // 只发送一次初始化完成消息
-    console.log(`[MemoryMonitor] Initialized, monitoring ${apisToMonitor.length} APIs: ${apisToMonitor.join(", ")}`);
+    console.log(`[+] [M] Initialized, monitoring ${apisToMonitor.length} APIs: ${apisToMonitor.join(", ")}`);
 }
 
 // ==================== 启动监控 ====================

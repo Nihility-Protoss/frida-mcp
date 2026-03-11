@@ -328,7 +328,7 @@ function createDeleteFileReplacement(apiName, filePath) {
  * @param {boolean} monitorReturn - 是否监控返回值 (默认: true)
  */
 function monitorFileApi(apiName, filePath, monitorReturn = true) {
-    console.log(`[+] Monitoring file API: ${apiName} for path: "${filePath}"`);
+    console.log(`[+] [M] file API: ${apiName} for path: "${filePath}"`);
     
     // 为DeleteFile API使用替换方式，阻止删除但返回成功
     if (apiName === "DeleteFileW" || apiName === "DeleteFileA") {
@@ -339,7 +339,7 @@ function monitorFileApi(apiName, filePath, monitorReturn = true) {
             if (apiAddress) {
                 const replacement = createDeleteFileReplacement(apiName, filePath);
                 Interceptor.replace(apiAddress, replacement);
-                console.log(`[+] Replaced ${apiName} with custom implementation`);
+                console.log(`[+] [R] ${apiName} with custom implementation`);
             } else {
                 console.log(`[-] API ${apiName} not found in kernel32.dll`);
             }
