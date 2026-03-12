@@ -1,4 +1,4 @@
-![](https://img.shields.io/badge/KimiK2%20Assisted-75%25-00a67d)
+![](https://img.shields.io/badge/Kimi%20Assisted-75%25-00a67d)
 
 # Frida MCP Server
 
