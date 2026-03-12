@@ -3,11 +3,10 @@ Frida MCP Server - Minimal Android Hook Service using FastMCP
 """
 
 import os
-from typing import Optional, Dict, Any, Union, List
+from typing import Optional, Dict, Any, Union, List, Annotated
 
 import frida
 from mcp.server.fastmcp import FastMCP
-from pydantic import Field
 
 import config.default_config as cfg_module
 from config.default_config import load_config, GLOBAL_CONFIG_PATH
@@ -45,29 +44,30 @@ CONFIG = load_config()
 
 @mcp.tool()
 def config_set(
-        server_path: Optional[str] = None,
-        server_name: Optional[str] = None,
-        server_port: Optional[int] = None,
-        device_id: Optional[str] = None,
-        adb_path: Optional[str] = None,
-        os: Optional[str] = Field(default=None, description="Target OS. Allowed: 'Android' or 'Windows'"),
-        save_to: Optional[str] = Field(default=None,
-                                       description="Optional: 'global' or 'project' to persist changes immediately.")
+    server_path: Annotated[Optional[str], "Path to frida-server binary"] = None,
+    server_name: Annotated[Optional[str], "Name of frida-server executable"] = None,
+    server_port: Annotated[Optional[int], "Port number for frida-server communication"] = None,
+    device_id: Annotated[Optional[str], "Default device identifier for connections"] = None,
+    adb_path: Annotated[Optional[str], "Path to ADB executable (Android only)"] = None,
+    os: Annotated[Optional[str], "Target OS ('Android' or 'Windows'). Must be set before using platform-specific features"] = None,
+    save_to: Annotated[Optional[str], "Persistence option - 'global' or 'project' to persist changes immediately"] = None,
 ) -> Dict[str, Any]:
     """
-    更新当前内存中的 Frida 配置。
-    
+    Update the current in-memory Frida configuration.
+
     Args:
-      - server_path: frida-server 路径
-      - server_name: frida-server 文件名
-      - server_port: frida-server 端口
-      - device_id: 默认设备 ID
-      - adb_path: adb 可执行文件路径
-      - save_to: 可选，'global' 或 'project'，指定是否立即持久化到对应文件
+        server_path: Path to frida-server binary
+        server_name: Name of frida-server executable
+        server_port: Port number for frida-server communication
+        device_id: Default device identifier for connections
+        adb_path: Path to ADB executable (Android only)
+        os: Target operating system ('Android' or 'Windows')
+        save_to: Persistence option - 'global' or 'project'
 
     Returns:
-        {status, message, active_config?, persisted_to?}
+        Dict with status, message, active_config, and optionally persisted_to
     """
+    global CONFIG
     global CONFIG
 
     # Update memory
@@ -102,13 +102,20 @@ def config_set(
 
 def _check_platform_environment(platform: str) -> Dict[str, Any]:
     """
-    检查指定平台环境是否准备就绪
+    Verify that the specified platform environment is ready for operations.
+    
+    This internal function checks if:
+    1. The configured OS matches the target platform
+    2. An injector has been initialized (via attach/spawn)
+    3. An active session exists
     
     Args:
-        platform: 平台名称，如"Android"或"Windows"，为""时必定通过检查
+        platform: Target platform name ('Android' or 'Windows'). Empty string allows any platform.
     
     Returns:
-        dict: {'error': str, 'data': None} 如果检查失败，否则返回 {'error': None, 'data': None}
+        Dict with structure:
+        - error: Error message string if check fails, None if successful
+        - data: Always None (reserved for future use)
     """
     if not platform:
         return {'error': None, 'data': None}
@@ -134,17 +141,25 @@ def _load_platform_script(
         **kwargs
 ) -> Dict[str, Any]:
     """
-    通用平台脚本加载和注入函数
+    Generic platform script loading and injection helper.
+    
+    This internal utility function handles the common workflow for loading
+    platform-specific scripts (Android/Windows) and optionally executing them.
     
     Args:
-        platform: 平台名称，如"Android"或"Windows"
-        load_method_name: 加载方法名称，用于错误消息
-        load_func: 加载函数
-        run_script_bool: 是否立即执行脚本
-        **kwargs: 传递给加载函数的参数
+        platform: Target platform ('Android' or 'Windows'). Use empty string for platform-agnostic scripts.
+        load_method_name: Name of the loading method for error reporting
+        load_func: Callable that loads the script content into ScriptManager
+        run_script_bool: If True, immediately injects and executes the script after loading
+        **kwargs: Additional arguments passed to the load function
     
     Returns:
-        {status, message}
+        Dict containing:
+        - status: 'success' or 'error'
+        - message: Detailed result description
+    
+    Note:
+        This function requires an active session established via attach() or spawn()
     """
     # 检查平台环境
     check_result = _check_platform_environment(platform)
@@ -189,10 +204,10 @@ def _load_platform_script(
 @mcp.tool()
 def config_save() -> Dict[str, Any]:
     """
-    将当前内存中的活跃配置保存到当前项目配置文件 (PROJECT_CONFIG_PATH) 中。
+    Persist the current in-memory configuration to the project config file.
 
     Returns:
-        {status, message, path?, config?}
+        Dict with status, message, path, and config
     """
     global CONFIG
     target_path = cfg_module.PROJECT_CONFIG_PATH
@@ -215,20 +230,16 @@ def config_save() -> Dict[str, Any]:
 
 @mcp.tool()
 def config_init(
-        new_project_config_path: Optional[str] = Field(default=None,
-                                                       description="Optional custom absolute path for the project config file.")
+    new_project_config_path: Annotated[Optional[str], "Custom absolute path for the project configuration file"] = None,
 ) -> Dict[str, Any]:
     """
-    初始化项目配置。建议在每个项目开始时运行一次。
-    
-    功能:
-    - 将当前活跃的配置写入项目配置文件。
-    - 如果 MCP_HOST 为 0.0.0.0 (允许远程调用)，自动将配置文件覆盖写保存在全局配置目录的新文件 frida.mcp.config.json 中。
-    - 支持通过 new_project_config_path 自定义配置文件路径，并将其设为当前活跃的 PROJECT_CONFIG_PATH。
-    - 如果目标路径不存在，则自动复制当前配置到该位置。
+    Initialize project configuration. Run this at the start of each project.
+
+    Args:
+        new_project_config_path: Custom absolute path for the project configuration file
 
     Returns:
-        {status, message, project_config_path?, current_active_config?}
+        Dict with status, message, project_config_path, and current_active_config
     """
     global CONFIG
 
@@ -272,6 +283,23 @@ def config_init(
 
 
 def _get_device(device_id: Optional[str]) -> frida.core.Device:
+    """
+    Get a Frida device instance based on configuration.
+    
+    Resolution order:
+    1. If device_id is provided or configured, use that specific device
+    2. If OS is Windows, use the local device
+    3. Otherwise, use the USB device (default for Android)
+    
+    Args:
+        device_id: Specific device identifier. If None, uses configured default.
+    
+    Returns:
+        frida.core.Device: Connected device instance
+    
+    Raises:
+        frida.InvalidArgumentError: If the specified device is not found
+    """
     did = device_id or getattr(CONFIG, "device_id", None)
     if did:
         return frida.get_device(did)
@@ -285,11 +313,16 @@ def _get_device(device_id: Optional[str]) -> frida.core.Device:
 @mcp.tool()
 def start_android_frida_server() -> Dict[str, Any]:
     """
-    启动 Android 设备上的 frida-server。
+    Start the frida-server on an Android device.
 
-    - 来源: 使用 config.json 的 server_path/server_name/server_port
+    Prerequisites:
+        - config.os must be set to 'Android'
+
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Note:
+        If frida-server is already running, returns success immediately
     """
     err = guard_os("Android", CONFIG, "start_android_frida_server")
     if err:
@@ -310,10 +343,16 @@ def start_android_frida_server() -> Dict[str, Any]:
 @mcp.tool()
 def stop_android_frida_server() -> Dict[str, Any]:
     """
-    停止 Android 设备上的 frida-server。
+    Stop the frida-server on an Android device.
+
+    Prerequisites:
+        - config.os must be set to 'Android'
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Note:
+        If frida-server is already stopped, returns success immediately
     """
     err = guard_os("Android", CONFIG, "stop_android_frida_server")
     if err:
@@ -329,10 +368,13 @@ def stop_android_frida_server() -> Dict[str, Any]:
 @mcp.tool()
 def check_android_frida_status() -> Dict[str, Any]:
     """
-    检测 Android frida-server 是否在运行。
+    Check if frida-server is running on the Android device.
+
+    Prerequisites:
+        - config.os must be set to 'Android'
 
     Returns:
-        {status, message}
+        Dict with status and running (boolean)
     """
     err = guard_os("Android", CONFIG, "check_android_frida_status")
     if err:
@@ -345,11 +387,16 @@ def check_android_frida_status() -> Dict[str, Any]:
 @mcp.tool()
 def start_windows_frida_server() -> Dict[str, Any]:
     """
-    启动 Windows 本地 frida-server。
+    Start the local frida-server on Windows.
 
-    - 来源: 使用 config.json 的 server_path/server_name
+    Prerequisites:
+        - config.os must be set to 'Windows'
+
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Note:
+        If frida-server is already running, returns success immediately
     """
     err = guard_os("Windows", CONFIG, "start_windows_frida_server")
     if err:
@@ -370,10 +417,16 @@ def start_windows_frida_server() -> Dict[str, Any]:
 @mcp.tool()
 def stop_windows_frida_server() -> Dict[str, Any]:
     """
-    停止 Windows 本地 frida-server。
+    Stop the local frida-server on Windows.
+
+    Prerequisites:
+        - config.os must be set to 'Windows'
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Note:
+        If frida-server is already stopped, returns success immediately
     """
     err = guard_os("Windows", CONFIG, "stop_windows_frida_server")
     if err:
@@ -389,10 +442,13 @@ def stop_windows_frida_server() -> Dict[str, Any]:
 @mcp.tool()
 def check_windows_frida_status() -> Dict[str, Any]:
     """
-    检测 Windows 本地 frida-server 是否在运行。
+    Check if frida-server is running on Windows.
+
+    Prerequisites:
+        - config.os must be set to 'Windows'
 
     Returns:
-        {status, running}
+        Dict with status and running (boolean)
     """
     err = guard_os("Windows", CONFIG, "check_windows_frida_status")
     if err:
@@ -405,10 +461,10 @@ def check_windows_frida_status() -> Dict[str, Any]:
 @mcp.tool()
 def check_frida_status() -> Dict[str, Any]:
     """
-        检测 目标 os 的 frida-server 是否在运行。
+    Check frida-server status for the currently configured OS.
 
     Returns:
-        {status, running}
+        Dict with status and running (boolean)
     """
     current = getattr(CONFIG, "os", None)
     if current == "Windows":
@@ -423,13 +479,11 @@ def check_frida_status() -> Dict[str, Any]:
 
 @mcp.tool()
 def enumerate_devices() -> List[Dict[str, Any]]:
-    """List all devices connected to the system.
+    """
+    List all devices available to Frida.
 
     Returns:
-        A list of device information dictionaries containing:
-        - id: Device ID
-        - name: Device name
-        - type: Device type
+        List of device dicts with id, name, and type
     """
     devices = frida.enumerate_devices()
     return [
@@ -444,12 +498,16 @@ def enumerate_devices() -> List[Dict[str, Any]]:
 
 @mcp.tool()
 def get_device(
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    device_id: Annotated[Optional[str], "Device identifier, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
-    """Get a device by its ID.
+    """
+    Get information about a specific device by its ID.
+
+    Args:
+        device_id: Device identifier
 
     Returns:
-        {status, id, name, type}
+        Dict with status, id, name, and type
     """
     try:
         _device = frida.get_device(device_id)
@@ -470,10 +528,11 @@ def get_device(
 
 @mcp.tool()
 def get_usb_device() -> Dict[str, Any]:
-    """Get the USB device connected to the system.
+    """
+    Get the USB-connected device.
 
     Returns:
-        {status, id, name, type}
+        Dict with status, id, name, and type
     """
     try:
         _device = frida.get_usb_device()
@@ -494,10 +553,11 @@ def get_usb_device() -> Dict[str, Any]:
 
 @mcp.tool()
 def get_local_device() -> Dict[str, Any]:
-    """Get the local device.
+    """
+    Get the local device.
 
     Returns:
-        {status, id, name, type}
+        Dict with status, id, name, and type
     """
     try:
         _device = frida.get_local_device()
@@ -518,12 +578,16 @@ def get_local_device() -> Dict[str, Any]:
 
 @mcp.tool()
 def list_applications(
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
-    列出设备上的已安装应用（含运行与未运行）。
+    List all installed applications on the device.
 
-    - 返回: {status, count, applications:[{identifier,name,pid?}]}
+    Args:
+        device_id: Target device
+
+    Returns:
+        Dict with status, count, and applications list
     """
     try:
         _device = _get_device(device_id)
@@ -553,12 +617,16 @@ def list_applications(
 
 @mcp.tool()
 def get_frontmost_application(
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
-    获取当前前台应用信息。
+    Get information about the currently foreground application.
+
+    Args:
+        device_id: Target device
+
     Returns:
-        {status, application?{identifier,name,pid}, message?}
+        Dict with status, application, and optionally message
     """
 
     try:
@@ -591,14 +659,16 @@ def get_frontmost_application(
 
 @mcp.tool()
 def enumerate_processes(
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> List[Dict[str, Any]]:
-    """List all processes running on the system.
+    """
+    List all processes currently running on the device.
+
+    Args:
+        device_id: Target device
 
     Returns:
-        A list of process information dictionaries containing:
-        - pid: Process ID
-        - name: Process name
+        List of process dicts with pid and name
     """
     _device = _get_device(device_id)
 
@@ -608,13 +678,18 @@ def enumerate_processes(
 
 @mcp.tool()
 def get_process_by_name(
-        name: str = Field(description="Process name (substring, case-insensitive)"),
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    name: Annotated[str, "Process name (substring, case-insensitive)"],
+    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
-    Find a process by name.
+    Find a running process by name (substring match, case-insensitive).
+
+    Args:
+        name: Process name or substring to search for
+        device_id: Target device
+
     Returns:
-        {found, error?, pid?, name?}
+        Dict with found (boolean), pid, name, and optionally error
     """
     _device = _get_device(device_id)
 
@@ -626,13 +701,18 @@ def get_process_by_name(
 
 @mcp.tool()
 def resume_process(
-        pid: int = Field(description="Process id to resume"),
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    pid: Annotated[int, "Process ID to resume"],
+    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
-    恢复被挂起的进程，暂未测试成功
+    Resume a suspended process.
+
+    Args:
+        pid: Process identifier to resume
+        device_id: Target device
+
     Returns:
-        {status, pid, message}
+        Dict with status, pid, and message
     """
     try:
         _device = _get_device(device_id)
@@ -644,13 +724,21 @@ def resume_process(
 
 @mcp.tool()
 def kill_process(
-        pid: int = Field(description="Process id to kill"),
-        device_id: Optional[str] = Field(default=None, description="Optional device id; uses config if omitted")
+    pid: Annotated[int, "Process ID to terminate"],
+    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
-    终止正在运行的进程。
+    Terminate a running process.
+
+    Args:
+        pid: Process identifier to terminate
+        device_id: Target device
+
     Returns:
-        {status, pid, message}
+        Dict with status, pid, and message
+
+    Warning:
+        This operation cannot be undone. Ensure you have the correct PID.
     """
     try:
         _device = _get_device(device_id)
@@ -664,7 +752,12 @@ def kill_process(
 
 @mcp.resource("frida://version")
 def get_version() -> Dict[str, Any]:
-    """Get the Frida version."""
+    """
+    Get version information for Frida and frida-mcp.
+
+    Returns:
+        Dict with frida and frida_mcp version strings
+    """
     return {
         "frida": frida.__version__,
         "frida_mcp": __version__,
@@ -674,7 +767,10 @@ def get_version() -> Dict[str, Any]:
 @mcp.resource("frida://config")
 def config_get() -> Dict[str, Any]:
     """
-    获取当前活跃的配置、全局和项目配置文件的路径及其状态。
+    Get current configuration and configuration file status.
+
+    Returns:
+        Dict with status, active_config, and paths
     """
     return {
         "status": "success",
@@ -695,15 +791,20 @@ def config_get() -> Dict[str, Any]:
 # Console Log
 
 @mcp.tool()
-def get_messages(max_messages: int = 100) -> Dict[str, Any]:
+def get_messages(
+    max_messages: Annotated[int, "Maximum number of messages to retrieve"] = 100,
+) -> Dict[str, Any]:
     """
-    获取指定文本数量的全局 hook/log 文本缓冲（非消费模式）。
+    Retrieve messages from the global log buffer.
 
     Args:
-      - max_messages: 返回的最大条数（默认 100）
+        max_messages: Maximum number of messages to retrieve
 
     Returns:
-      - {status, messages, remaining}
+        Dict with status, messages, and remaining
+
+    Note:
+        For incremental log retrieval, use get_new_messages instead
     """
     if max_messages is None or max_messages < 0:
         max_messages = 0
@@ -718,10 +819,10 @@ def get_messages(max_messages: int = 100) -> Dict[str, Any]:
 @mcp.tool()
 def get_new_messages() -> Dict[str, Any]:
     """
-    获取上次输出到此刻之间的所有 log 数据，建议优先使用该 API
+    Retrieve new messages since the last call.
 
     Returns:
-      - {status, messages, remaining}
+        Dict with status, messages, and remaining
     """
     snapshot = messages_buffer.get_new_messages()
     return {
@@ -734,6 +835,21 @@ def get_new_messages() -> Dict[str, Any]:
 # MCP Tool Handlers using FastMCP decorators
 
 def injector_init() -> Dict[str, Any]:
+    """
+    Initialize the platform-specific injector.
+    
+    This internal function creates the appropriate injector instance
+    (AndroidInjector or WindowsInjector) based on config.os.
+    Must be called before attach() or spawn().
+
+    Returns:
+        Dict containing:
+        - status: 'success' or 'error'
+        - message: Description of the operation result
+
+    Raises:
+        Returns error if device_id is not set or OS is unsupported.
+    """
     global injector
     if injector is None:
         # 手动构建 injector 结构体
@@ -764,15 +880,21 @@ def injector_init() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def attach(target: str) -> Dict[str, Any]:
+async def attach(
+    target: Annotated[str, "Process identifier - PID (as string) or process name"],
+) -> Dict[str, Any]:
     """
-    附加到运行中的进程，建立session连接。
+    Attach to a running process.
 
     Args:
-      - target: PID 字符串或包名
+        target: Process identifier - PID or process name
 
     Returns:
-      - {status, pid, target, name, message}
+        Dict with status, pid, target, name, and message
+
+    Prerequisites:
+        - config.os must be set
+        - config.device_id must be set
     """
     if not target or not target.strip():
         return {
@@ -801,18 +923,22 @@ async def attach(target: str) -> Dict[str, Any]:
 
 @mcp.tool()
 async def spawn(
-    package_name: str,
-    args: str = ""
+    package_name: Annotated[str, "Application package name (Android) or executable path (Windows)"],
+    args: Annotated[str, "Optional command-line arguments"] = "",
 ) -> Dict[str, Any]:
     """
-    拉起应用（挂起态）并附加，建立session连接。
+    Launch a new process in suspended state and attach to it.
 
     Args:
-      - package_name: 应用包名 / 应用程序路径
-      - args: 启动参数（可选），如 "--arg1 value1 --arg2"
+        package_name: Application package name or executable path
+        args: Optional command-line arguments
 
     Returns:
-      - {status, pid, package, message}
+        Dict with status, pid, package, and message
+
+    Prerequisites:
+        - config.os must be set
+        - config.device_id must be set
     """
     if not package_name or not package_name.strip():
         return {
@@ -843,10 +969,13 @@ async def spawn(
 @mcp.tool()
 async def detach() -> Dict[str, Any]:
     """
-    断开当前活跃的session连接。
+    Detach from the current session.
 
     Returns:
-      - {status, message}
+        Dict with status and message
+
+    Note:
+        This does not terminate the target process
     """
     if not injector:
         return {
@@ -870,10 +999,13 @@ async def detach() -> Dict[str, Any]:
 @mcp.tool()
 async def get_session_info() -> Dict[str, Any]:
     """
-    获取当前活跃的session信息。
+    Get information about the current active session.
 
     Returns:
-      - {status, target, pid, message}
+        Dict with status, target, pid, and message
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
     """
     if not injector:
         return {
@@ -900,19 +1032,21 @@ async def get_session_info() -> Dict[str, Any]:
 
 @mcp.tool()
 async def inject_user_script_run(
-        script_content: str,
-        script_name: str = "user_script"
+    script_content: Annotated[str, "JavaScript code to inject and execute"],
+    script_name: Annotated[str, "Identifier for this script"] = "user_script",
 ) -> Dict[str, Any]:
     """
-    将JavaScript脚本注入到当前活跃的session中，仅执行注入的部分。
-    完成操作后，通过 get_new_messages 函数获取本次操作的所有log返回信息。
+    Inject and execute a user-provided JavaScript script.
 
     Args:
-      - script_content: 要注入的Frida JS代码字符串
-      - script_name: 脚本名称标识符，默认为"user_script"
+        script_content: JavaScript code to inject and execute
+        script_name: Identifier for this script
 
     Returns:
-      - {status, ?script_name, ?script_content_length}
+        Dict with status, script_name, and script_content_length
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
     """
     if not injector:
         return {
@@ -952,19 +1086,21 @@ async def inject_user_script_run(
 
 @mcp.tool()
 async def inject_user_script_run_all(
-        script_content: Optional[str] = None,
-        script_name: str = "custom_script"
+    script_content: Annotated[Optional[str], "Optional JavaScript code to add before execution"] = None,
+    script_name: Annotated[str, "Identifier for the script section"] = "custom_script",
 ) -> Dict[str, Any]:
     """
-    将JavaScript脚本注入到当前活跃的session中，执行 ScriptManager 中所有内容。
-    完成操作后，通过 get_new_messages 函数获取本次操作的所有log返回信息。
+    Inject and execute all scripts from the ScriptManager.
 
     Args:
-      - script_content: 要注入的Frida JS代码字符串，为空时注入 ScriptManager 中已有的内容
-      - script_name: 脚本名称标识符，默认为"custom_script"
+        script_content: Optional JavaScript code to add before execution
+        script_name: Identifier for the script section
 
     Returns:
-        {status, ?script_name, ?script_content_length}
+        Dict with status, script_name, and script_content_length
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
     """
     if not injector:
         return {
@@ -1006,10 +1142,13 @@ async def inject_user_script_run_all(
 @mcp.tool()
 def get_script_list() -> Dict[str, Any]:
     """
-    获得当前 injector 下所有可用的内置 script 文件名列表
+    List all available built-in scripts for the current injector.
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
     """
     if not injector:
         return {
@@ -1028,9 +1167,13 @@ def get_script_list() -> Dict[str, Any]:
 @mcp.tool()
 def get_script_now() -> Dict[str, Any]:
     """
-    获得当前 injector 中已经构建好的 script
+    Get the currently built script content from the ScriptManager.
+
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
     """
     if not injector:
         return {
@@ -1046,9 +1189,16 @@ def get_script_now() -> Dict[str, Any]:
 @mcp.tool()
 def reset_script_now() -> Dict[str, Any]:
     """
-    重置当前 injector 中的 script，恢复初始状态
+    Reset the ScriptManager to its initial state.
+
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
+
+    Warning:
+        This clears all loaded scripts
     """
     if not injector:
         return {
@@ -1067,17 +1217,21 @@ def reset_script_now() -> Dict[str, Any]:
 
 @mcp.tool()
 def util_load_module_enumerateExports(
-        module_name: str,
-        run_script_bool: bool = False,
+    module_name: Annotated[str, "Module file name (e.g., 'libssl.so' or 'kernel32.dll')"],
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    枚举模块中所有的 Export 函数，Android 和 Windows 环境下都可使用
+    Enumerate all exported functions from a module.
+
     Args:
-        module_name: 模块文件名（非完整路径），允许 Android 环境下的 *.so 和 Windows 环境下 *.dll
-        run_script_bool: 若为 True 则在加载js文件后立即执行
+        module_name: Module file name
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "",
@@ -1092,16 +1246,20 @@ def util_load_module_enumerateExports(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper_hook_clone(
-        run_script_bool: bool = False,
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载对抗 libDexHelper.so 的 hook clone 代码到即将运行的 script 中，并选择是否立即执行
+    Load anti-DexHelper detection bypass script (hook clone method).
 
     Args:
-        run_script_bool: 若为 True 则在加载js文件后立即执行
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Android",
@@ -1113,16 +1271,20 @@ def android_load_script_anti_DexHelper_hook_clone(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper_hook_pthread(
-        run_script_bool: bool = False,
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载对抗 libDexHelper.so 的 hook pthread 代码到即将运行的 script 中，并选择是否立即执行
+    Load anti-DexHelper detection bypass script (hook pthread method).
 
     Args:
-        run_script_bool: 若为 True 则在加载js文件后立即执行
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Android",
@@ -1134,19 +1296,22 @@ def android_load_script_anti_DexHelper_hook_pthread(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper(
-        hook_addr_list: List[int],
-        run_script_bool: bool = False,
+    hook_addr_list: Annotated[List[int], "List of memory addresses to NOP (e.g., [0x561d0, 0x52cc0])"],
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载对抗 libDexHelper.so 的 代码到即将运行的 script 中，并选择是否立即执行
-    会 nop 掉 hook_addr_list 地址对应的所有检测函数
+    Load anti-DexHelper detection bypass script (NOP method).
 
     Args:
-        hook_addr_list: 形似[0x561d0, 0x52cc0, 0x5ded4, 0x5e410, 0x5fb48, 0x592c8, 0x69470]的列表
-        run_script_bool: 若为 True 则在加载js文件后立即执行
+        hook_addr_list: List of memory addresses to NOP
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Android",
@@ -1159,17 +1324,20 @@ def android_load_script_anti_DexHelper(
 
 @mcp.tool()
 def android_load_hook_net_libssl(
-        run_script_bool: bool = False
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载Android平台的 http/https Hook脚本，直接hook底层代码，直接拿到数据
-    来自 https://bbs.kanxue.com/thread-289085.htm
+    Load SSL/TLS network traffic interception script.
 
     Args:
-        run_script_bool: 若为True则在加载后立即执行脚本
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Android",
@@ -1181,18 +1349,22 @@ def android_load_hook_net_libssl(
 
 @mcp.tool()
 def android_load_hook_clone(
-        anti_so_name_tag: str = "DexHelper",
-        run_script_bool: bool = False
+    anti_so_name_tag: Annotated[str, "Name/tag of the SO file to counter (default: 'DexHelper')"] = "DexHelper",
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载Android平台的hook clone脚本，用于对抗指定SO文件的检测
+    Load clone() syscall hook for anti-detection.
 
     Args:
-        anti_so_name_tag: 要对抗的SO文件名标签，默认为"DexHelper"
-        run_script_bool: 若为True则在加载后立即执行脚本
+        anti_so_name_tag: Name/tag of the SO file to counter
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Android",
@@ -1205,20 +1377,24 @@ def android_load_hook_clone(
 
 @mcp.tool()
 def android_load_hook_activity(
-        package_name: str,
-        activity_name: str,
-        run_script_bool: bool = False
+    package_name: Annotated[str, "Target application package name"],
+    activity_name: Annotated[str, "Full Activity class name to hook (e.g., 'com.example.app.MainActivity')"],
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载Android平台的Activity生命周期Hook脚本
+    Load Android Activity lifecycle hook script.
 
     Args:
-        package_name: 目标应用包名
-        activity_name: 要Hook的Activity名称
-        run_script_bool: 若为True则在加载后立即执行脚本
+        package_name: Target application package name
+        activity_name: Full Activity class name to hook
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Android",
@@ -1234,20 +1410,24 @@ def android_load_hook_activity(
 
 @mcp.tool()
 def windows_load_monitor_api(
-        module_name: str,
-        api_name: str,
-        run_script_bool: bool = False
+    module_name: Annotated[str, "Name of the DLL module (e.g., 'kernel32.dll')"],
+    api_name: Annotated[str, "Name of the API function to monitor (e.g., 'CreateFileW')"],
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载 Windows 平台的 API 监控脚本
+    Load Windows API monitoring script.
 
     Args:
-        module_name: 要监控的模块 DLL 名称
-        api_name: 要监控的 API 名称
-        run_script_bool: 若为True则在加载后立即执行脚本
+        module_name: Name of the DLL module containing the API
+        api_name: Name of the API function to monitor
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Windows'
+        - Must have an active session via attach() or spawn()
     """
     return _load_platform_script(
         "Windows",
@@ -1266,21 +1446,36 @@ def windows_load_monitor_registry(
         run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
-    加载Windows平台的注册表监控脚本
+    Load Windows registry monitoring script.
+    
+    Hooks registry operations to monitor or intercept registry access.
+    Can filter by specific registry path or monitor all operations.
 
     Args:
-        api_name: 注册表API名称，必须是以下之一：
-            RegOpenKeyExW, RegOpenKeyExA, RegCreateKeyExW, RegCreateKeyExA,
-            RegSetValueExW, RegSetValueExA, RegQueryValueExW, RegQueryValueExA,
-            RegDeleteValueW, RegDeleteValueA, RegDeleteKeyW, RegDeleteKeyA,
-            RegEnumKeyExW, RegEnumKeyExA, RegEnumValueW, RegEnumValueA
-        registry_path: 要监控的注册表路径（可以为空，监控所有路径）
-        run_script_bool: 若为True则在加载后立即执行脚本
+        api_name: Registry API to monitor. Valid options:
+            - RegOpenKeyExW, RegOpenKeyExA
+            - RegCreateKeyExW, RegCreateKeyExA
+            - RegSetValueExW, RegSetValueExA
+            - RegQueryValueExW, RegQueryValueExA
+            - RegDeleteValueW, RegDeleteValueA
+            - RegDeleteKeyW, RegDeleteKeyA
+            - RegEnumKeyExW, RegEnumKeyExA
+            - RegEnumValueW, RegEnumValueA
+        registry_path: Registry path to monitor (e.g., "SOFTWARE\\MyApp").
+            Empty string monitors all paths.
+        run_script_bool: If True, immediately inject and execute.
+            If False, only loads into ScriptManager for later execution.
 
     Returns:
-        {status, message}
+        Dict containing:
+            - status: 'success' or 'error'
+            - message: Description of the operation result
+
+    Prerequisites:
+        - config.os must be 'Windows'
+        - Must have an active session via attach() or spawn()
     """
-    # 定义有效的注册表API名称
+    # Valid registry API names
     VALID_REGISTRY_APIS = {
         "RegOpenKeyExW", "RegOpenKeyExA",
         "RegCreateKeyExW", "RegCreateKeyExA",
@@ -1316,21 +1511,35 @@ def windows_load_monitor_file(
         run_script_bool: bool = False
 ) -> Dict[str, Any]:
     """
-    加载Windows平台的文件监控脚本
+    Load Windows file operation monitoring script.
+    
+    Hooks file system APIs to monitor file operations.
+    Can filter by specific file path or monitor all operations.
 
     Args:
-        api_name: 文件操作API名称，必须是以下之一：
-            CreateFileW, CreateFileA, ReadFile, WriteFile,
-            DeleteFileW, DeleteFileA, MoveFileW, MoveFileA,
-            MoveFileExW, MoveFileExA, CopyFileW, CopyFileA,
-            CopyFileExW, CopyFileExA, CloseHandle
-        file_path: 要监控的文件完整路径（可以为空，监控所有路径）
-        run_script_bool: 若为True则在加载后立即执行脚本
+        api_name: File API to monitor. Valid options:
+            - CreateFileW, CreateFileA
+            - ReadFile, WriteFile
+            - DeleteFileW, DeleteFileA
+            - MoveFileW, MoveFileA, MoveFileExW, MoveFileExA
+            - CopyFileW, CopyFileA, CopyFileExW, CopyFileExA
+            - FindFirstFileW, FindFirstFileA
+            - CloseHandle
+        file_path: Full file path to monitor (e.g., "C:\\temp\\file.txt").
+            Empty string monitors all paths.
+        run_script_bool: If True, immediately inject and execute.
+            If False, only loads into ScriptManager for later execution.
 
     Returns:
-        {status, message}
+        Dict containing:
+        - status: 'success' or 'error'
+        - message: Description of the operation result
+
+    Prerequisites:
+        - config.os must be 'Windows'
+        - Must have an active session via attach() or spawn()
     """
-    # 定义有效的文件API名称
+    # Valid file API names
     VALID_FILE_APIS = {
         "CreateFileW", "CreateFileA",
         "ReadFile", "WriteFile",
@@ -1362,18 +1571,24 @@ def windows_load_monitor_file(
 
 @mcp.tool()
 def windows_fast_load_all_monitor_file(
-        run_script_bool: bool = False
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载 Windows 平台的所有文件监控 API，可能造成极大量的 log 信息，请谨慎使用
+    Load comprehensive file monitoring for all file APIs.
 
     Args:
-        run_script_bool: 若为True则在加载后立即执行脚本
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
-    """
+        Dict with status and message
 
+    Prerequisites:
+        - config.os must be 'Windows'
+        - Must have an active session via attach() or spawn()
+
+    Warning:
+        Generates large volume of log output
+    """
     return _load_platform_script(
         "Windows",
         "fast_load_all_monitor_file",
@@ -1384,19 +1599,24 @@ def windows_fast_load_all_monitor_file(
 
 @mcp.tool()
 def windows_fast_load_monitor_memory_alloc(
-        run_script_bool: bool = False
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
-    加载 Windows 平台的内存分配监控脚本，可能造成极大量的 log 信息，请谨慎使用
-    当检测到RX/RWX类型的可执行内存、执行到该内存段时，自动dump内存
+    Load memory allocation monitoring with executable memory detection.
 
     Args:
-        run_script_bool: 若为True则在加载后立即执行脚本
+        run_script_bool: If True, immediately inject and execute
 
     Returns:
-        {status, message}
-    """
+        Dict with status and message
 
+    Prerequisites:
+        - config.os must be 'Windows'
+        - Must have an active session via attach() or spawn()
+
+    Warning:
+        High volume output and large memory dumps
+    """
     return _load_platform_script(
         "Windows",
         "fast_load_monitor_memory_alloc",
