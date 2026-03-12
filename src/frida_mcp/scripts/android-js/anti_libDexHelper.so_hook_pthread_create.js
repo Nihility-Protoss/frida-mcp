@@ -1,4 +1,9 @@
-function hook_pthread_create() {
+/**
+ * Anti libDexHelper - Pthread Create Hook
+ * Hook pthread_create for libDexHelper.so
+ */
+
+function AntiPthread_hook_pthread_create() {
     var pthread_create_addr = Module.findExportByName("libc.so", "pthread_create");
     console.log("pthread_create addr: ", pthread_create_addr);
     Interceptor.attach(pthread_create_addr, {
@@ -6,12 +11,13 @@ function hook_pthread_create() {
             var thread_func_addr = args[2];
             var module = Process.findModuleByAddress(thread_func_addr);
             console.log(`pthread_create thread func: ${module.name}+0x${(thread_func_addr - module.base).toString(16)}`);
-        }, onLeave: function (retval) {
+        },
+        onLeave: function (retval) {
         }
     });
 }
 
-function hook_dlopen() {
+function AntiPthread_hook_dlopen() {
     const funcName = "android_dlopen_ext";
     const libc = Module.findBaseAddress("libc.so");
     var funcPtr = Module.findExportByName(null, funcName);
@@ -22,7 +28,6 @@ function hook_dlopen() {
         Interceptor.attach(funcPtr, {
             onEnter: function (args) {
                 this.pathPtr = args[0];
-
                 if (this.pathPtr !== null && this.pathPtr !== undefined) {
                     try {
                         var path = this.pathPtr.readCString();
@@ -31,12 +36,13 @@ function hook_dlopen() {
                             this.isTarget = true;
                         }
                     } catch (e) {
-                        console.log("[!] Error reading path string in " + this.funcName);
+                        console.log("[!] Error reading path string");
                     }
                 }
-            }, onLeave: function (retval) {
+            },
+            onLeave: function (retval) {
                 if (this.isTarget) {
-                    hook_pthread_create(); // 如果hook会由于检测libc.so而崩溃
+                    AntiPthread_hook_pthread_create();
                 }
             }
         });
@@ -44,7 +50,9 @@ function hook_dlopen() {
         console.log("[-] Warning: " + funcName + " not found in exports.");
     }
 }
-function main() {
-    hook_dlopen();
+
+function AntiPthread_main() {
+    AntiPthread_hook_dlopen();
 }
-setImmediate(main);
+
+setImmediate(AntiPthread_main);
