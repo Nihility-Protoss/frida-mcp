@@ -1409,6 +1409,177 @@ def android_load_hook_activity(
     )
 
 
+@mcp.tool()
+def android_load_hook_crypto(
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+) -> Dict[str, Any]:
+    """
+    Load encryption/decryption operations hook script.
+
+    Hooks javax.crypto.Cipher and java.security.MessageDigest to monitor
+    encryption/decryption and hashing operations.
+
+    Args:
+        run_script_bool: If True, immediately inject and execute
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
+    """
+    return _load_platform_script(
+        "Android",
+        "load_hook_crypto",
+        injector.script_manager.load_hook_crypto,
+        run_script_bool
+    )
+
+
+@mcp.tool()
+def android_load_hook_java_common(
+    target_key: Annotated[str, "Target Map key to monitor (optional, e.g., 'password' or 'token')"] = "",
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+) -> Dict[str, Any]:
+    """
+    Load common Java class hook script.
+
+    Hooks Map, StringBuilder, Base64, Dialog, Toast, and Snackbar operations.
+    Useful for monitoring general app behavior and data flow.
+
+    Args:
+        target_key: Target Map key to monitor (e.g., 'password', 'token').
+            Empty string monitors all Map operations.
+        run_script_bool: If True, immediately inject and execute
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
+    """
+    return _load_platform_script(
+        "Android",
+        "load_hook_java_common",
+        injector.script_manager.load_hook_java_common,
+        run_script_bool,
+        target_key=target_key
+    )
+
+
+@mcp.tool()
+def android_load_hook_native_common(
+    block_so_name: Annotated[str, "SO library name to block from loading (e.g., 'libprotect.so')"] = "",
+    newstringutf_filter: Annotated[str, "Filter string for NewStringUTF hooking"] = "",
+    newstringutf_length: Annotated[int, "Exact string length to filter for NewStringUTF hooking"] = 0,
+    register_target_class: Annotated[str, "Target class name for RegisterNatives hooking (e.g., 'com.example.NativeLib')"] = "",
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+) -> Dict[str, Any]:
+    """
+    Load common native layer hook script.
+
+    Hooks SO loading, NewStringUTF, and RegisterNatives operations.
+    Useful for monitoring native library loading and JNI operations.
+
+    Args:
+        block_so_name: SO library name to block from loading
+        newstringutf_filter: Filter string for NewStringUTF hooking
+        newstringutf_length: Exact string length to filter (overrides filter if > 0)
+        register_target_class: Target class for RegisterNatives monitoring
+        run_script_bool: If True, immediately inject and execute
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
+    """
+    return _load_platform_script(
+        "Android",
+        "load_hook_native_common",
+        injector.script_manager.load_hook_native_common,
+        run_script_bool,
+        block_so_name=block_so_name,
+        newstringutf_filter=newstringutf_filter,
+        newstringutf_length=newstringutf_length,
+        register_target_class=register_target_class
+    )
+
+
+@mcp.tool()
+def android_load_hook_dex(
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+) -> Dict[str, Any]:
+    """
+    Load DEX loading monitoring script.
+
+    Hooks DexClassLoader, PathClassLoader, and InMemoryClassLoader
+    to monitor dynamic code loading. Optionally triggers FART dump.
+
+    Args:
+        run_script_bool: If True, immediately inject and execute
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
+    """
+    return _load_platform_script(
+        "Android",
+        "load_hook_dex",
+        injector.script_manager.load_hook_dex,
+        run_script_bool
+    )
+
+
+@mcp.tool()
+def android_load_delay_hook(
+    target_so: Annotated[str, "Target SO name to wait for before hooking (empty for time delay)"] = "",
+    delay_ms: Annotated[int, "Delay in milliseconds if target_so is empty"] = 1000,
+    target_function: Annotated[str, "Native function name to hook"] = "",
+    target_class: Annotated[str, "Java class name to hook (e.g., 'com.example.Main')"] = "",
+    target_method: Annotated[str, "Java method name to hook"] = "",
+    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+) -> Dict[str, Any]:
+    """
+    Load delayed hook template script.
+
+    Delays hook execution until a specific SO is loaded or after a time delay.
+    Useful for hooking libraries that are loaded dynamically after app startup.
+
+    Args:
+        target_so: Target SO name to wait for (empty for time delay)
+        delay_ms: Delay in milliseconds (only used if target_so is empty)
+        target_function: Native function name to hook
+        target_class: Java class name to hook
+        target_method: Java method name to hook
+        run_script_bool: If True, immediately inject and execute
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Android'
+        - Must have an active session via attach() or spawn()
+    """
+    return _load_platform_script(
+        "Android",
+        "load_delay_hook",
+        injector.script_manager.load_delay_hook,
+        run_script_bool,
+        target_so=target_so,
+        delay_ms=delay_ms,
+        target_function=target_function,
+        target_class=target_class,
+        target_method=target_method
+    )
+
+
 # MCP Tool Windows Script
 
 @mcp.tool()
