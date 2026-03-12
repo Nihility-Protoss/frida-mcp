@@ -1,4 +1,5 @@
 ![](https://img.shields.io/badge/KimiK2%20Assisted-75%25-00a67d)
+[![MCPAmpel](https://img.shields.io/endpoint?url=https://mcpampel.com/badge/Nihility-Protoss/frida-mcp.json)](https://mcpampel.com/repo/Nihility-Protoss/frida-mcp)
 
 # Frida MCP Server
 
