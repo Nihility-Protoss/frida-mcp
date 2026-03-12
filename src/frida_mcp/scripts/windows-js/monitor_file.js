@@ -84,7 +84,7 @@ function parseFileCreation(creationFlags) {
  * @returns {Function} onEnter回调函数
  */
 function createFileOnEnter(apiName, filePath) {
-    return function(args) {
+    return function (args) {
         let fileName = "";
         let accessFlags = 0;
         let creationDisposition = 0;
@@ -217,7 +217,7 @@ function createFileOnEnter(apiName, filePath) {
  * @returns {Function} onLeave回调函数
  */
 function createFileOnLeave(apiName) {
-    return function(retval) {
+    return function (retval) {
         try {
             const data = this.fileData;
             if (!data) return;
@@ -262,16 +262,16 @@ function createFileOnLeave(apiName) {
                 console.log("[TARGET FILE RESULT] " + "-".repeat(50));
                 console.log(`API: ${data.apiName}`);
                 console.log(`RESULT: ${resultDesc}`);
-                
+
                 if (!success && apiName.includes("CreateFile")) {
                     console.log(`ERROR: ${retval.toInt32()}`);
                 }
-                
+
                 console.log("[TARGET FILE RESULT] " + "-".repeat(50));
             } else {
                 if (!success) {
                     console.log(`[${data.apiName} FAILED] ${retval.toString(16)}`);
-                } else if (apiName.includes("CreateFile")){
+                } else if (apiName.includes("CreateFile")) {
                     console.log(`[${apiName} Success] [${resultDesc}]`)
                 }
             }
@@ -288,27 +288,27 @@ function createFileOnLeave(apiName) {
  * @returns {Function} 替换函数
  */
 function createDeleteFileReplacement(apiName, filePath) {
-    return new NativeCallback(function(lpFileName) {
+    return new NativeCallback(function (lpFileName) {
         try {
             const isWide = apiName.endsWith('W');
             const fileName = safeReadString(ptr(lpFileName), isWide);
-            
+
             // 检查是否为目标路径
             const isTarget = isTargetPath(filePath, fileName);
-            
+
             if (isTarget) {
                 console.log(`[BLOCKED] ${apiName} ${fileName} - Deletion prevented, returning success`);
-                
+
                 // 阻止删除操作，但返回成功 (TRUE = 1)
                 return 1; // TRUE - 表示删除成功
             } else {
                 // 非目标文件，调用原始函数
                 console.log(`[FILE] ${apiName} ${fileName}`);
-                
+
                 // 获取原始函数指针
                 const module = Process.getModuleByName("kernel32.dll");
                 const originalFunc = module.getExportByName(apiName);
-                
+
                 // 调用原始函数
                 const original = new NativeFunction(originalFunc, 'int', ['pointer']);
                 return original(lpFileName);
@@ -329,13 +329,13 @@ function createDeleteFileReplacement(apiName, filePath) {
  */
 function monitorFileApi(apiName, filePath, monitorReturn = true) {
     console.log(`[+] [M] file API: ${apiName} for path: "${filePath}"`);
-    
+
     // 为DeleteFile API使用替换方式，阻止删除但返回成功
     if (apiName === "DeleteFileW" || apiName === "DeleteFileA") {
         try {
             const module = Process.getModuleByName("kernel32.dll");
             const apiAddress = module.getExportByName(apiName);
-            
+
             if (apiAddress) {
                 const replacement = createDeleteFileReplacement(apiName, filePath);
                 Interceptor.replace(apiAddress, replacement);
@@ -363,11 +363,11 @@ function monitorFileApis(apiNames, filePath) {
     console.log("=".repeat(70));
     console.log(`Starting File System Monitor for path: "${filePath}"`);
     console.log("=".repeat(70));
-    
+
     apiNames.forEach(apiName => {
         monitorFileApi(apiName, filePath);
     });
-    
+
     console.log("[✓] All file API monitors initialized");
     console.log("=".repeat(70));
 }

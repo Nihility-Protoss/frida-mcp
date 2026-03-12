@@ -1,6 +1,6 @@
 // Common utility functions
 function printStackTrace() {
-    Java.perform(function() {
+    Java.perform(function () {
         var Log = Java.use("android.util.Log");
         var Exception = Java.use("java.lang.Exception");
         console.log("[+] Stack trace:");

@@ -45,7 +45,7 @@ class WindowsScriptManager(ScriptManager):
         )
 
     def load_monitor_registry(
-            self, api_name:str, registry_path: str = ""
+            self, api_name: str, registry_path: str = ""
     ) -> Dict[str, Any]:
         """
         加载注册表监控脚本
@@ -67,7 +67,7 @@ class WindowsScriptManager(ScriptManager):
             registry_path=registry_path
         )
 
-    def load_monitor_file(self, api_name:str, file_path: str) -> Dict[str, Any]:
+    def load_monitor_file(self, api_name: str, file_path: str) -> Dict[str, Any]:
         """
         加载文件监控脚本
 

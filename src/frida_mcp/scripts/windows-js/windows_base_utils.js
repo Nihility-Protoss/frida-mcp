@@ -37,11 +37,12 @@ function safeToUInt32(ptr, defaultValue = 0) {
 function safeArg(args, index, defaultPtr = ptr(0)) {
     // Frida的args是特殊的NativePointer数组，需要直接访问
     if (!args || index < 0) return defaultPtr;
-    
+
     // 尝试直接访问，如果越界会抛出异常
     const arg = args[index];
     return arg || defaultPtr;
 }
+
 // 🔧 工具函数：格式化句柄（便于日志追踪）
 function formatHandle(h) {
     return h && !h.isNull() ? "0x" + h.toString(16) : "NULL";
@@ -95,7 +96,7 @@ function monitorApi(moduleName, apiName, onEnterCallback, onLeaveCallback) {
         }
 
         // 默认的onEnter处理函数
-        const defaultOnEnter = function(args) {
+        const defaultOnEnter = function (args) {
             try {
                 console.log(`[+] ${apiName} called`);
 
@@ -117,7 +118,7 @@ function monitorApi(moduleName, apiName, onEnterCallback, onLeaveCallback) {
         };
 
         // 默认的onLeave处理函数
-        const defaultOnLeave = function(retval) {
+        const defaultOnLeave = function (retval) {
             try {
                 console.log(`[+] ${apiName} returned: 0x${retval.toString(16)}`);
 
@@ -143,7 +144,7 @@ function monitorApi(moduleName, apiName, onEnterCallback, onLeaveCallback) {
             onEnter: onEnterHandler,
             onLeave: onLeaveHandler
         });
-        
+
         console.log(`[+] Successfully attached to ${moduleName}!${apiName}`);
     } catch (e) {
         console.log(`[+] Error setting up API monitor: ${e.message}`);

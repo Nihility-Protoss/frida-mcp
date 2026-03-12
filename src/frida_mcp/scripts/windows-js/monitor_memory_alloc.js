@@ -98,16 +98,16 @@ function isWritableProtection(protect) {
  */
 function requestMemoryDump(address, size, apiName, reason, extraInfo) {
     const MAX_DUMP_SIZE = 10 * 1024 * 1024; // 最大 dump 10MB
-    
+
     // 限制 dump 大小
     let actualSize = size;
     if (size > MAX_DUMP_SIZE) {
         console.log(`[MemoryMonitor] Region too large (${(size / 1024 / 1024).toFixed(2)}MB), dump limited to 10MB`);
         actualSize = MAX_DUMP_SIZE;
     }
-    
+
     const filename = `mem_${apiName}_${Process.id}_${Date.now()}_0x${address.toString(16)}.bin`;
-    
+
     // 读取内存数据
     let memoryData = null;
     try {
@@ -116,14 +116,14 @@ function requestMemoryDump(address, size, apiName, reason, extraInfo) {
         console.log(`[MemoryMonitor] Failed to read memory at 0x${address.toString(16)}: ${e.message}`);
         return null;
     }
-    
+
     // 只发送 Python 端需要的字段
     send({
         type: "memory_dump",
         filename: filename,
         pid: Process.id
     }, memoryData);
-    
+
     // 其他信息以单行日志形式输出
     console.log(`[MemoryMonitor] Dump info: addr=0x${address.toString(16)}, size=${actualSize}${size > MAX_DUMP_SIZE ? '/' + size : ''}, api=${apiName}, reason=${reason}`);
     return filename;
@@ -168,7 +168,7 @@ function getReturnAddress(context) {
  */
 function monitorFirstExecution(address, size, apiName, originalInfo) {
     const addrStr = address.toString();
-    
+
     // 避免重复监控同一区域
     if (trackedMemoryRegions.has(addrStr)) {
         const existing = trackedMemoryRegions.get(addrStr);
@@ -176,44 +176,44 @@ function monitorFirstExecution(address, size, apiName, originalInfo) {
             return;
         }
     }
-    
+
     try {
         // 在内存起始地址设置Interceptor
         const interceptor = Interceptor.attach(address, {
-            onEnter: function(args) {
+            onEnter: function (args) {
                 const addrStr = address.toString();
                 const region = trackedMemoryRegions.get(addrStr);
-                
+
                 if (region && region.status !== 'dumped') {
                     region.status = 'dumped';
                     trackedMemoryRegions.set(addrStr, region);
-                    
+
                     // 获取返回地址
                     const returnAddr = getReturnAddress(this.context);
                     const callerStr = returnAddr ? returnAddr.toString() : 'unknown';
-                    
+
                     // 请求dump
                     requestMemoryDump(
-                        address, 
-                        size, 
-                        apiName, 
+                        address,
+                        size,
+                        apiName,
                         "First execution intercepted",
                         {
                             originalProtect: parseMemoryProtection(region.originalProtect),
                             caller: callerStr
                         }
                     );
-                    
+
                     sendExecutableAlert(address, size, region.originalProtect, apiName, "dump_on_first_execute", {
                         caller: callerStr
                     });
-                    
+
                     // 执行一次后可以选择detach
                     // interceptor.detach();
                 }
             }
         });
-        
+
         trackedMemoryRegions.set(addrStr, {
             address: address,
             size: size,
@@ -223,7 +223,7 @@ function monitorFirstExecution(address, size, apiName, originalInfo) {
             status: 'monitored',
             interceptor: interceptor
         });
-        
+
     } catch (e) {
         // Interceptor设置失败（可能地址不可执行），直接dump
         requestMemoryDump(address, size, apiName, "Interceptor failed, direct dump", {error: e.message});
@@ -237,12 +237,12 @@ function monitorFirstExecution(address, size, apiName, originalInfo) {
 function isProtectionTransition(oldProtect, newProtect) {
     const oldBase = oldProtect & 0xFF;
     const newBase = newProtect & 0xFF;
-    
+
     // RW -> RX
     const isRwToRx = (oldBase === PROT_RW || oldBase === PROT_RWX) && newBase === PROT_RX;
     // RWX -> RX
     const isRwxToRx = oldBase === PROT_RWX && newBase === PROT_RX;
-    
+
     return isRwToRx || isRwxToRx;
 }
 
@@ -250,7 +250,7 @@ function isProtectionTransition(oldProtect, newProtect) {
  * 创建内存分配API监控的onEnter回调
  */
 function createMemoryAllocOnEnter(apiName) {
-    return function(args) {
+    return function (args) {
         let address = ptr(0);
         let size = 0;
         let protect = 0;
@@ -318,7 +318,7 @@ function createMemoryAllocOnEnter(apiName) {
             allocType,
             isExecutableRequest: isExecutableProtection(protect)
         };
-        
+
         // 输出当前API调用信息
         const protStr = parseMemoryProtection(protect);
         const typeStr = allocType ? parseAllocationType(allocType) : '-';
@@ -330,14 +330,14 @@ function createMemoryAllocOnEnter(apiName) {
  * 创建内存分配API监控的onLeave回调
  */
 function createMemoryAllocOnLeave(apiName) {
-    return function(retval) {
+    return function (retval) {
         const data = this.memoryData;
         if (!data) return;
 
         try {
             const returnedAddress = retval;
             const success = !returnedAddress.isNull();
-            
+
             // 确定实际地址
             let actualAddress;
             if (apiName.includes("VirtualProtect")) {
@@ -345,7 +345,7 @@ function createMemoryAllocOnLeave(apiName) {
             } else {
                 actualAddress = returnedAddress;
             }
-            
+
             if (!success || actualAddress.isNull()) {
                 return;
             }
@@ -371,7 +371,7 @@ function createMemoryAllocOnLeave(apiName) {
                 // 检查是否已存在跟踪记录（可能是VirtualProtect转换）
                 const addrStr = actualAddress.toString();
                 const existingRegion = trackedMemoryRegions.get(addrStr);
-                
+
                 if (existingRegion) {
                     // 检查是否为权限转换场景
                     if (isProtectionTransition(existingRegion.originalProtect, actualProtect)) {
@@ -380,7 +380,7 @@ function createMemoryAllocOnLeave(apiName) {
                         reason = `Protection transition: ${parseMemoryProtection(existingRegion.originalProtect)} -> ${parseMemoryProtection(actualProtect)}`;
                         existingRegion.status = 'transitioned';
                         trackedMemoryRegions.set(addrStr, existingRegion);
-                        
+
                         extraInfo = {
                             previousProtect: parseMemoryProtection(existingRegion.originalProtect),
                             newProtect: parseMemoryProtection(actualProtect),
@@ -404,7 +404,7 @@ function createMemoryAllocOnLeave(apiName) {
                 }
 
                 // 发送告警（包含完整信息）
-                sendExecutableAlert(actualAddress, data.size, actualProtect, apiName, 
+                sendExecutableAlert(actualAddress, data.size, actualProtect, apiName,
                     shouldMonitor ? "monitor_first_execute" : (dumpImmediately ? "immediate_dump" : "transition"),
                     extraInfo
                 );

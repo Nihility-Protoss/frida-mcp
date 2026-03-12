@@ -144,15 +144,15 @@ class BaseInjector(ABC):
         """处理脚本消息"""
         if message['type'] == 'send':
             payload = message['payload']
-            
+
             # 处理内存 dump 消息
             if isinstance(payload, dict) and payload.get('type') == 'memory_dump':
                 self._handle_memory_dump(payload, data)
                 return
-            
+
             # 普通日志消息
             self._log(f"[{script_name}] {payload}")
-            
+
         elif message['type'] == 'error':
             self._log(f"[{script_name}] ERROR: {message['stack']}")
 
@@ -174,11 +174,11 @@ class BaseInjector(ABC):
             # 创建dump目录
             dump_dir = Path("memory_dumps")
             dump_dir.mkdir(exist_ok=True)
-            
+
             # 添加PID子目录
             pid_dir = dump_dir / str(pid)
             pid_dir.mkdir(exist_ok=True)
-            
+
             filepath = pid_dir / filename
             print(f"Now in _handle_memory_dump {filename}\n size: f{len(data)}")
             print(f"path: {filepath}")
@@ -189,7 +189,7 @@ class BaseInjector(ABC):
                 self._log(f"[DUMP SAVED] {filepath}")
             else:
                 self._log(f"[DUMP ERROR] No data received for {filename}")
-                
+
         except Exception as e:
             self._log(f"[DUMP ERROR] Failed to save: {str(e)}")
 

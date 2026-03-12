@@ -103,7 +103,7 @@ class WindowsInjector(BaseInjector):
 
             # 构建完整命令（用于显示）
             full_command = target
-            
+
             # 构建argv参数列表
             if args and args.strip():
                 import shlex
@@ -111,7 +111,7 @@ class WindowsInjector(BaseInjector):
                 full_command = f"{target} {args.strip()}"
             else:
                 argv = []
-            
+
             # 启动程序（Windows 也使用 argv 参数）
             pid = device.spawn([target], argv=argv if argv else None)
             self.session = device.attach(pid)

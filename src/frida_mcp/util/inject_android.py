@@ -103,7 +103,7 @@ class AndroidInjector(BaseInjector):
 
             # 构建完整包名（包含参数，用于显示）
             full_package = target
-            
+
             # 构建argv参数列表
             if args and args.strip():
                 import shlex
@@ -112,7 +112,7 @@ class AndroidInjector(BaseInjector):
                 pid = device.spawn([target], argv=argv)
             else:
                 pid = device.spawn(target)
-            
+
             self.session = device.attach(pid)
 
             self.current_target = full_package

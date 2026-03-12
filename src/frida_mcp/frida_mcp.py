@@ -19,7 +19,7 @@ from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 from util.message_class import MessageLog
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
@@ -44,13 +44,15 @@ CONFIG = load_config()
 
 @mcp.tool()
 def config_set(
-    server_path: Annotated[Optional[str], "Path to frida-server binary"] = None,
-    server_name: Annotated[Optional[str], "Name of frida-server executable"] = None,
-    server_port: Annotated[Optional[int], "Port number for frida-server communication"] = None,
-    device_id: Annotated[Optional[str], "Default device identifier for connections"] = None,
-    adb_path: Annotated[Optional[str], "Path to ADB executable (Android only)"] = None,
-    os: Annotated[Optional[str], "Target OS ('Android' or 'Windows'). Must be set before using platform-specific features"] = None,
-    save_to: Annotated[Optional[str], "Persistence option - 'global' or 'project' to persist changes immediately"] = None,
+        server_path: Annotated[Optional[str], "Path to frida-server binary"] = None,
+        server_name: Annotated[Optional[str], "Name of frida-server executable"] = None,
+        server_port: Annotated[Optional[int], "Port number for frida-server communication"] = None,
+        device_id: Annotated[Optional[str], "Default device identifier for connections"] = None,
+        adb_path: Annotated[Optional[str], "Path to ADB executable (Android only)"] = None,
+        os: Annotated[Optional[
+            str], "Target OS ('Android' or 'Windows'). Must be set before using platform-specific features"] = None,
+        save_to: Annotated[
+            Optional[str], "Persistence option - 'global' or 'project' to persist changes immediately"] = None,
 ) -> Dict[str, Any]:
     """
     Update the current in-memory Frida configuration.
@@ -230,7 +232,8 @@ def config_save() -> Dict[str, Any]:
 
 @mcp.tool()
 def config_init(
-    new_project_config_path: Annotated[Optional[str], "Custom absolute path for the project configuration file"] = None,
+        new_project_config_path: Annotated[
+            Optional[str], "Custom absolute path for the project configuration file"] = None,
 ) -> Dict[str, Any]:
     """
     Initialize project configuration. Run this at the start of each project.
@@ -498,7 +501,7 @@ def enumerate_devices() -> List[Dict[str, Any]]:
 
 @mcp.tool()
 def get_device(
-    device_id: Annotated[Optional[str], "Device identifier, uses config if omitted"] = None,
+        device_id: Annotated[Optional[str], "Device identifier, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
     Get information about a specific device by its ID.
@@ -578,7 +581,7 @@ def get_local_device() -> Dict[str, Any]:
 
 @mcp.tool()
 def list_applications(
-    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
+        device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
     List all installed applications on the device.
@@ -617,7 +620,7 @@ def list_applications(
 
 @mcp.tool()
 def get_frontmost_application(
-    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
+        device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
     Get information about the currently foreground application.
@@ -659,7 +662,7 @@ def get_frontmost_application(
 
 @mcp.tool()
 def enumerate_processes(
-    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
+        device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> List[Dict[str, Any]]:
     """
     List all processes currently running on the device.
@@ -678,8 +681,8 @@ def enumerate_processes(
 
 @mcp.tool()
 def get_process_by_name(
-    name: Annotated[str, "Process name (substring, case-insensitive)"],
-    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
+        name: Annotated[str, "Process name (substring, case-insensitive)"],
+        device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
     Find a running process by name (substring match, case-insensitive).
@@ -701,8 +704,8 @@ def get_process_by_name(
 
 @mcp.tool()
 def resume_process(
-    pid: Annotated[int, "Process ID to resume"],
-    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
+        pid: Annotated[int, "Process ID to resume"],
+        device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
     Resume a suspended process.
@@ -724,8 +727,8 @@ def resume_process(
 
 @mcp.tool()
 def kill_process(
-    pid: Annotated[int, "Process ID to terminate"],
-    device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
+        pid: Annotated[int, "Process ID to terminate"],
+        device_id: Annotated[Optional[str], "Target device, uses config if omitted"] = None,
 ) -> Dict[str, Any]:
     """
     Terminate a running process.
@@ -792,7 +795,7 @@ def config_get() -> Dict[str, Any]:
 
 @mcp.tool()
 def get_messages(
-    max_messages: Annotated[int, "Maximum number of messages to retrieve"] = 100,
+        max_messages: Annotated[int, "Maximum number of messages to retrieve"] = 100,
 ) -> Dict[str, Any]:
     """
     Retrieve messages from the global log buffer.
@@ -881,7 +884,7 @@ def injector_init() -> Dict[str, Any]:
 
 @mcp.tool()
 async def attach(
-    target: Annotated[str, "Process identifier - PID (as string) or process name"],
+        target: Annotated[str, "Process identifier - PID (as string) or process name"],
 ) -> Dict[str, Any]:
     """
     Attach to a running process.
@@ -923,8 +926,8 @@ async def attach(
 
 @mcp.tool()
 async def spawn(
-    package_name: Annotated[str, "Application package name (Android) or executable path (Windows)"],
-    args: Annotated[str, "Optional command-line arguments"] = "",
+        package_name: Annotated[str, "Application package name (Android) or executable path (Windows)"],
+        args: Annotated[str, "Optional command-line arguments"] = "",
 ) -> Dict[str, Any]:
     """
     Launch a new process in suspended state and attach to it.
@@ -1032,8 +1035,8 @@ async def get_session_info() -> Dict[str, Any]:
 
 @mcp.tool()
 async def inject_user_script_run(
-    script_content: Annotated[str, "JavaScript code to inject and execute"],
-    script_name: Annotated[str, "Identifier for this script"] = "user_script",
+        script_content: Annotated[str, "JavaScript code to inject and execute"],
+        script_name: Annotated[str, "Identifier for this script"] = "user_script",
 ) -> Dict[str, Any]:
     """
     Inject and execute a user-provided JavaScript script.
@@ -1086,8 +1089,8 @@ async def inject_user_script_run(
 
 @mcp.tool()
 async def inject_user_script_run_all(
-    script_content: Annotated[Optional[str], "Optional JavaScript code to add before execution"] = None,
-    script_name: Annotated[str, "Identifier for the script section"] = "custom_script",
+        script_content: Annotated[Optional[str], "Optional JavaScript code to add before execution"] = None,
+        script_name: Annotated[str, "Identifier for the script section"] = "custom_script",
 ) -> Dict[str, Any]:
     """
     Inject and execute all scripts from the ScriptManager.
@@ -1217,8 +1220,8 @@ def reset_script_now() -> Dict[str, Any]:
 
 @mcp.tool()
 def util_load_module_enumerateExports(
-    module_name: Annotated[str, "Module file name (e.g., 'libssl.so' or 'kernel32.dll')"],
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        module_name: Annotated[str, "Module file name (e.g., 'libssl.so' or 'kernel32.dll')"],
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Enumerate all exported functions from a module.
@@ -1246,7 +1249,7 @@ def util_load_module_enumerateExports(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper_hook_clone(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load anti-DexHelper detection bypass script (hook clone method).
@@ -1271,7 +1274,7 @@ def android_load_script_anti_DexHelper_hook_clone(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper_hook_pthread(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load anti-DexHelper detection bypass script (hook pthread method).
@@ -1296,8 +1299,8 @@ def android_load_script_anti_DexHelper_hook_pthread(
 
 @mcp.tool()
 def android_load_script_anti_DexHelper(
-    hook_addr_list: Annotated[List[int], "List of memory addresses to NOP (e.g., [0x561d0, 0x52cc0])"],
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        hook_addr_list: Annotated[List[int], "List of memory addresses to NOP (e.g., [0x561d0, 0x52cc0])"],
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load anti-DexHelper detection bypass script (NOP method).
@@ -1324,7 +1327,7 @@ def android_load_script_anti_DexHelper(
 
 @mcp.tool()
 def android_load_hook_net_libssl(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load SSL/TLS network traffic interception script.
@@ -1349,8 +1352,8 @@ def android_load_hook_net_libssl(
 
 @mcp.tool()
 def android_load_hook_clone(
-    anti_so_name_tag: Annotated[str, "Name/tag of the SO file to counter (default: 'DexHelper')"] = "DexHelper",
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        anti_so_name_tag: Annotated[str, "Name/tag of the SO file to counter (default: 'DexHelper')"] = "DexHelper",
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load clone() syscall hook for anti-detection.
@@ -1377,9 +1380,9 @@ def android_load_hook_clone(
 
 @mcp.tool()
 def android_load_hook_activity(
-    package_name: Annotated[str, "Target application package name"],
-    activity_name: Annotated[str, "Full Activity class name to hook (e.g., 'com.example.app.MainActivity')"],
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        package_name: Annotated[str, "Target application package name"],
+        activity_name: Annotated[str, "Full Activity class name to hook (e.g., 'com.example.app.MainActivity')"],
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load Android Activity lifecycle hook script.
@@ -1410,9 +1413,9 @@ def android_load_hook_activity(
 
 @mcp.tool()
 def windows_load_monitor_api(
-    module_name: Annotated[str, "Name of the DLL module (e.g., 'kernel32.dll')"],
-    api_name: Annotated[str, "Name of the API function to monitor (e.g., 'CreateFileW')"],
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        module_name: Annotated[str, "Name of the DLL module (e.g., 'kernel32.dll')"],
+        api_name: Annotated[str, "Name of the API function to monitor (e.g., 'CreateFileW')"],
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load Windows API monitoring script.
@@ -1551,14 +1554,14 @@ def windows_load_monitor_file(
         "FindFirstFileW", "FindFirstFileA",
         "CloseHandle"
     }
-    
+
     # 验证api_name参数
     if api_name not in VALID_FILE_APIS:
         return {
             "status": "error",
             "message": f"UseLess Api Name: {api_name}, must in list[{', '.join(sorted(VALID_FILE_APIS))}]"
         }
-    
+
     return _load_platform_script(
         "Windows",
         "load_monitor_file",
@@ -1571,7 +1574,7 @@ def windows_load_monitor_file(
 
 @mcp.tool()
 def windows_fast_load_all_monitor_file(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load comprehensive file monitoring for all file APIs.
@@ -1599,7 +1602,7 @@ def windows_fast_load_all_monitor_file(
 
 @mcp.tool()
 def windows_fast_load_monitor_memory_alloc(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load memory allocation monitoring with executable memory detection.
