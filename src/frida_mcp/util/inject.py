@@ -151,9 +151,11 @@ class BaseInjector(ABC):
             if isinstance(payload, dict) and payload.get('type') == 'memory_dump':
                 self._handle_memory_dump(payload, data)
                 return
-
-            # 普通日志消息
-            self._log(f"[{script_name}] {payload}")
+            elif isinstance(payload, dict) and payload.get('type') == 'log':
+                # 普通日志消息
+                self._log(f"[{script_name}] {payload['message']}")
+            else:
+                self._log(f"[{script_name}] {payload}")
 
         elif message['type'] == 'error':
             self._log(f"[{script_name}] ERROR: {message['stack']}")
