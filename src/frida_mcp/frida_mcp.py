@@ -33,7 +33,7 @@ messages_buffer: MessageLog = MessageLog()
 
 # Append client-side Frida logs to the global buffer
 def _frida_mcp_log(text: str) -> None:
-    messages_buffer.append(f"[frida-mcp] {text}")
+    messages_buffer.append(f"[mcp] {text}")
 
 
 # Initialize FastMCP

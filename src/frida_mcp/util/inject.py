@@ -40,11 +40,11 @@ class BaseInjector(ABC):
         self.running_script: Optional[frida.core.Script] = None
 
     def __str__(self):
-        return f"{self.__class__.__name__}-{self.current_target}-{self.current_pid}"
+        return f"Inj-{self.current_pid}"
 
     def _log(self, text: str) -> None:
         """记录日志消息"""
-        message = f"[{self.__class__.__name__}] {text}"
+        message = f"[{self.__str__()}] {text}"
         self.messages_buffer.append(message)
 
     def is_connected(self) -> bool:
@@ -121,7 +121,9 @@ class BaseInjector(ABC):
 
             # 创建并加载脚本
             script = self.session.create_script(script_content)
-            script.on('message', lambda message, data: self._handle_script_message(script_name, message, data))
+            script.on('message', lambda message, data: self._handle_script_message(
+                f"{len(script_manager.name)}", message, data
+            ))
             script.load()
             self.running_script = script
 
