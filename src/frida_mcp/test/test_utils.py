@@ -121,6 +121,26 @@ class MCPTestClient:
                 print(f"    {msg}")
         return messages
     
+    async def get_messages(self, max_messages: int = 1000) -> List[str]:
+        """Get log messages from the global log buffer.
+        
+        Args:
+            max_messages: Maximum number of messages to retrieve (default: 1000)
+            
+        Returns:
+            List of message strings
+        """
+        result = await self.call("get_messages", {"max_messages": max_messages})
+        messages = result.get("messages", [])
+        remaining = result.get("remaining", 0)
+        if messages:
+            print(f"[+] Retrieved {len(messages)} messages ({remaining} remaining)")
+            for msg in messages:
+                print(f"    {msg}")
+        else:
+            print(f"[*] No messages retrieved ({remaining} remaining)")
+        return messages
+    
     async def load_script(self, tool_name: str, **kwargs) -> Dict[str, Any]:
         """Load a built-in script."""
         print(f"[*] Loading script: {tool_name}")
