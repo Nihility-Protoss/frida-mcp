@@ -145,17 +145,8 @@ function requestMemoryDump(address, size, apiName, reason) {
  */
 function sendExecutableAlert(address, size, protection, apiName, action, extraInfo) {
     const addrStr = address ? '0x' + address.toString(16) : 'NULL';
-    let logMsg = "[EXECUTABLE_MEMORY_ALERT]\n" +
-        "  API: " + apiName + "\n" +
-        "  Address: " + addrStr + "\n" +
-        "  Size: 0x" + size.toString(16) + "\n" +
-        "  Protection: " + parseMemoryProtection(protection) + "\n" +
-        "  Action: " + action + "\n" +
-        "  Timestamp: " + Date.now();
-    if (extraInfo) {
-        logMsg += "\n  ExtraInfo: " + JSON.stringify(extraInfo);
-    }
-    console.log(logMsg);
+    const extraStr = extraInfo ? ', extra=' + JSON.stringify(extraInfo) : '';
+    console.log(`[EXECUTABLE_MEMORY_ALERT] api=${apiName}, addr=${addrStr}, size=0x${size.toString(16)}, prot=${parseMemoryProtection(protection)}, action=${action}${extraStr}`);
 }
 
 /**
@@ -325,19 +316,13 @@ function createMemoryAllocOnEnter(apiName) {
         // 对于 VirtualProtect 类型，如果目标为 RX 权限，在 onEnter 时就进行 dump（捕获转换前的内容）
         if ((apiName === "VirtualProtect" || apiName === "VirtualProtectEx") && (protect & 0xFF) === PROT_RX) {
             try {
-                const memInfo = Memory.queryProtection(address);
-                const currentProtect = memInfo ? memInfo.protection : 0;
-                
-                // 记录原始保护状态到 memoryData，供 onLeave 参考
-                this.memoryData.previousProtect = currentProtect;
                 this.memoryData.preTransitionDumped = true;
                 
                 // 立即 dump 转换前的内存内容
                 requestMemoryDump(address, size, apiName, "Pre-transition dump (before RX)");
                 
-                sendExecutableAlert(address, size, currentProtect, apiName, "pre_transition_dump", {
-                    targetProtect: parseMemoryProtection(protect),
-                    currentProtect: parseMemoryProtection(currentProtect)
+                sendExecutableAlert(address, size, protect, apiName, "pre_transition_dump", {
+                    targetProtect: parseMemoryProtection(protect)
                 });
             } catch (e) {
                 console.log(`[MemoryMonitor] Pre-transition dump failed: ${e.message}`);
@@ -346,9 +331,11 @@ function createMemoryAllocOnEnter(apiName) {
         }
 
         // 输出当前API调用信息
-        // 如果为 HeapAlloc 且 size <= 0x100，则不进行 log
-        if (apiName === "HeapAlloc" && size <= 0x100) {
-            return;
+        // 对于 HeapAlloc：只有涉及可执行权限时才记录，减少无效日志污染
+        if (apiName === "HeapAlloc") {
+            if (!isExecutableProtection(protect)) {
+                return;
+            }
         }
 
         const protStr = parseMemoryProtection(protect);
