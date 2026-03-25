@@ -117,6 +117,21 @@ class WindowsScriptManager(ScriptManager):
         return self.load_script_from_file(this_script_filename)
 
 
+    def fast_load_monitor_network_send(self) -> Dict[str, Any]:
+        """
+        Load fast network API monitoring script.
+
+        Monitors ws2_32 (WSASend/send), wininet (InternetOpenA/HttpSendRequestA),
+        and winhttp (WinHttpOpen/Connect/OpenRequest/SendRequest).
+
+        Returns:
+        """
+        this_script_filename = "monitor_network_send.js"
+        if this_script_filename in self.name:
+            return {'error': None, 'data': self.open_script}
+        return self.load_script_from_file(this_script_filename)
+
+
 if __name__ == '__main__':
     a = WindowsScriptManager()
     print(a.get_available_scripts())

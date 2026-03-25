@@ -151,6 +151,10 @@ class MCPTestClient:
             print(f"[-] Load failed: {result.get('message', 'Unknown error')}")
         return result
 
+    async def load_windows_fast_monitor_network_send(self) -> Dict[str, Any]:
+        """Load fast Windows network request monitor script."""
+        return await self.load_script("windows_fast_load_monitor_network_send")
+
 
 class TestRunner:
     """Base class for running test suites."""

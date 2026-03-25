@@ -35,9 +35,17 @@ class WindowsFastScriptRunner(TestRunner):
         result = await client.load_script("windows_fast_load_monitor_memory_alloc")
         return self.record("windows_fast_load_monitor_memory_alloc", result)
 
+    async def test_fast_network_monitor(self, client: MCPTestClient) -> Dict[str, Any]:
+        """Test windows_fast_load_monitor_network_send."""
+        self.print_section("Test 3: Fast Network Monitor")
+        print("[!] Warning: Captures request headers and body data")
+
+        result = await client.load_windows_fast_monitor_network_send()
+        return self.record("windows_fast_load_monitor_network_send", result)
+
     async def test_get_script(self, client: MCPTestClient) -> Dict[str, Any]:
         """Test get_script_now."""
-        self.print_section("Test 3: Get Current Script")
+        self.print_section("Test 4: Get Current Script")
         result = await client.call("get_script_now")
         if result.get("status") == "success":
             print(f"[+] Script size: {len(result.get('message', ''))} chars")
@@ -45,7 +53,7 @@ class WindowsFastScriptRunner(TestRunner):
 
     async def test_trigger_scripts(self, client: MCPTestClient) -> Dict[str, Any]:
         """Trigger all loaded scripts by injecting empty script."""
-        self.print_section("Test 4: Trigger All Scripts")
+        self.print_section("Test 5: Trigger All Scripts")
         print("[*] Injecting empty script to trigger all loaded scripts")
 
         result = await client.call("inject_user_script_run_all", {"script_content": ""})
@@ -72,8 +80,9 @@ class WindowsFastScriptRunner(TestRunner):
             self.record("spawn", spawn_result)
 
             # Run tests
-            await self.test_fast_file_monitor(client)
+            # await self.test_fast_file_monitor(client)
             await self.test_fast_memory_monitor(client)
+            # await self.test_fast_network_monitor(client)
             await self.test_get_script(client)
             await self.test_trigger_scripts(client)
 

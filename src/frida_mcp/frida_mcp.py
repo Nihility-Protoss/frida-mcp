@@ -1810,6 +1810,37 @@ def windows_fast_load_monitor_memory_alloc(
     )
 
 
+@mcp.tool()
+def windows_fast_load_monitor_network_send(
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+) -> Dict[str, Any]:
+    """
+    Load fast network request monitoring scripts.
+
+    Monitors ws2_32 (WSASend/send), wininet (InternetOpenA/HttpSendRequestA),
+    and winhttp (WinHttpOpen/WinHttpConnect/WinHttpOpenRequest/WinHttpSendRequest).
+
+    Args:
+        run_script_bool: If True, immediately inject and execute
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - config.os must be 'Windows'
+        - Must have an active session via attach() or spawn()
+
+    Warning:
+        May capture sensitive request data (headers/body)
+    """
+    return _load_platform_script(
+        "Windows",
+        "fast_load_monitor_network_send",
+        injector.script_manager.fast_load_monitor_network_send,
+        run_script_bool,
+    )
+
+
 if __name__ == "__main__":
     # Ensure the server doesn't shut down immediately. 
     # For transport="streamable-http", FastMCP should use the host/port from constructor.
