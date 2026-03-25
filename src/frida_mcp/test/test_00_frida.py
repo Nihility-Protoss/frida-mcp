@@ -19,10 +19,10 @@ async def test_basic_connection():
 
         # Try to get new messages (should work even without session)
         print("[*] Testing get_new_messages...")
-        # messages = await client.get_new_messages()
-        # print(f"[+] Test complete - retrieved {len(messages)} messages")
-        messages = await client.get_messages()
+        messages = await client.get_new_messages()
         print(f"[+] Test complete - retrieved {len(messages)} messages")
+        # messages = await client.get_messages()
+        # print(f"[+] Test complete - retrieved {len(messages)} messages")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,9 @@
-"""
+﻿"""
 修正的BaseInjector类，符合指定的抽象方法签名
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 
@@ -151,6 +152,9 @@ class BaseInjector(ABC):
             if isinstance(payload, dict) and payload.get('type') == 'memory_dump':
                 self._handle_memory_dump(payload, data)
                 return
+            elif isinstance(payload, dict) and payload.get('type') == 'headers_dump':
+                self._handle_headers_dump(payload, data)
+                return
             elif isinstance(payload, dict) and payload.get('type') == 'log':
                 # 普通日志消息
                 self._log(f"[{script_name}] {payload['message']}")
@@ -169,8 +173,6 @@ class BaseInjector(ABC):
             payload: 消息payload，包含filename, address, size等信息
             data: 二进制内存数据（由JS端读取并发送）
         """
-        from datetime import datetime
-
         try:
             filename = payload.get('filename', f"dump_{datetime.now().timestamp()}.bin")
             pid = payload.get('pid', self.current_pid or 'unknown')
@@ -196,6 +198,51 @@ class BaseInjector(ABC):
 
         except Exception as e:
             self._log(f"[DUMP ERROR] Failed to save: {str(e)}")
+
+    @staticmethod
+    def _safe_file_token(value: Any, fallback: str = "unknown") -> str:
+        text = str(value) if value is not None else fallback
+        text = text.strip() or fallback
+        return "".join(ch if (ch.isalnum() or ch in "._-") else "_" for ch in text)
+
+    def _handle_headers_dump(self, payload: Dict[str, Any], data: bytes) -> None:
+        """Save request headers dump to file."""
+        try:
+            pid = payload.get('pid', self.current_pid or 'unknown')
+            api = self._safe_file_token(payload.get('api', 'UNKNOWN'))
+            destination = self._safe_file_token(payload.get('destination', 'unknown'))
+            timestamp = payload.get('timestamp')
+
+            if timestamp is None:
+                timestamp = int(datetime.now().timestamp() * 1000)
+            ts_token = self._safe_file_token(timestamp, fallback=str(int(datetime.now().timestamp() * 1000)))
+
+            filename = payload.get('filename')
+            if not filename:
+                filename = f"{api}_{destination}_{ts_token}.txt"
+            else:
+                filename = self._safe_file_token(filename)
+                if not filename.lower().endswith('.txt'):
+                    filename = f"{filename}.txt"
+
+            dump_dir = Path("headers_dumps")
+            dump_dir.mkdir(exist_ok=True)
+            pid_dir = dump_dir / str(pid)
+            pid_dir.mkdir(exist_ok=True)
+            filepath = pid_dir / filename
+
+            if data:
+                content = data
+            else:
+                text = payload.get('content', '')
+                content = str(text).encode('utf-8', errors='replace')
+
+            with open(filepath, 'wb') as f:
+                f.write(content)
+
+            self._log(f"[HEADERS SAVED] {filepath}")
+        except Exception as e:
+            self._log(f"[HEADERS DUMP ERROR] Failed to save: {str(e)}")
 
     @abstractmethod
     async def attach(self, target: str) -> Dict[str, Any]:
@@ -250,3 +297,4 @@ class BaseInjector(ABC):
 
         except Exception as e:
             return {'error': str(e), 'data': None}
+

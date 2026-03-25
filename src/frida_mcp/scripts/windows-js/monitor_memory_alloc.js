@@ -152,6 +152,10 @@ function requestMemoryDump(address, size, apiName, reason) {
  * 发送可执行内存告警
  */
 function sendExecutableAlert(address, size, protection, apiName, action, extraInfo) {
+    // 跳过小内存区域（size=8），静默处理
+    if (size === 8) {
+        return;
+    }
     const addrStr = address ? '0x' + address.toString(16) : 'NULL';
     const extraStr = extraInfo ? ', extra=' + JSON.stringify(extraInfo) : '';
     console.log(`[EXECUTABLE_MEMORY_ALERT] api=${apiName}, addr=${addrStr}, size=0x${size.toString(16)}, prot=${parseMemoryProtection(protection)}, action=${action}${extraStr}`);
@@ -344,6 +348,12 @@ function createMemoryAllocOnEnter(apiName) {
             if (!isExecutableProtection(protect)) {
                 return;
             }
+        }
+
+        // 小内存区域（size=8）简化日志输出
+        if (size === 8) {
+            // console.log(`[MemoryMonitor] Small region: addr=0x${address ? address.toString(16) : 'NULL'}, api=${apiName}`);
+            return;
         }
 
         const protStr = parseMemoryProtection(protect);

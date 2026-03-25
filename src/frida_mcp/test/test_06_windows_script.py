@@ -80,9 +80,9 @@ class WindowsFastScriptRunner(TestRunner):
             self.record("spawn", spawn_result)
 
             # Run tests
-            # await self.test_fast_file_monitor(client)
+            await self.test_fast_file_monitor(client)
             await self.test_fast_memory_monitor(client)
-            # await self.test_fast_network_monitor(client)
+            await self.test_fast_network_monitor(client)
             await self.test_get_script(client)
             await self.test_trigger_scripts(client)
 
@@ -91,7 +91,7 @@ class WindowsFastScriptRunner(TestRunner):
             await client.get_new_messages()
 
             # Cleanup
-            await client.detach()
+            # await client.detach()
 
             self.print_summary()
 
