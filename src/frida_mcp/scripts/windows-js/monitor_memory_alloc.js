@@ -112,7 +112,15 @@ function requestMemoryDump(address, size, apiName, reason) {
         actualSize = MAX_DUMP_SIZE;
     }
 
-    const filename = `mem_${apiName}_${Process.id}_${Date.now()}_0x${address.toString(16)}.bin`;
+    const addrStr = address.toString(16);
+
+    // 跳过特定条件的小内存区域：size为8且地址以7F开头（通常是栈上的临时数据）
+    if (size === 8) {
+        console.log(`[MemoryMonitor] Skip dump: addr=0x${addrStr}, size=${size}, api=${apiName}, reason=${reason} (small stack data)`);
+        return null;
+    }
+
+    const filename = `mem_${apiName}_${Process.id}_${Date.now()}_0x${addrStr}.bin`;
 
     // 读取内存数据 (Frida 17: 使用 NativePointer.readByteArray 实例方法)
     let memoryData = null;
@@ -123,7 +131,7 @@ function requestMemoryDump(address, size, apiName, reason) {
             : new NativePointer(address.toString());
         memoryData = targetPtr.readByteArray(actualSize);
     } catch (e) {
-        console.log(`[MemoryMonitor] Failed to read memory at 0x${address ? address.toString(16) : 'NULL'}: ${e.message}`);
+        console.log(`[MemoryMonitor] Failed to read memory at 0x${address ? addrStr : 'NULL'}: ${e.message}`);
         console.log(`[MemoryMonitor] Stack: ${e.stack}`);
         return null;
     }
@@ -136,7 +144,7 @@ function requestMemoryDump(address, size, apiName, reason) {
     }, memoryData);
 
     // 其他信息以单行日志形式输出
-    console.log(`[MemoryMonitor] Dump info: addr=0x${address.toString(16)}, size=${actualSize}${size > MAX_DUMP_SIZE ? '/' + size : ''}, api=${apiName}, reason=${reason}`);
+    console.log(`[MemoryMonitor] Dump info: addr=0x${addrStr}, size=${actualSize}${size > MAX_DUMP_SIZE ? '/' + size : ''}, api=${apiName}, reason=${reason}`);
     return filename;
 }
 
