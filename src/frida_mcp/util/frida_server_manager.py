@@ -2,6 +2,10 @@ from abc import ABC, abstractmethod
 from config.default_config import FridaConfig
 
 
+def _default_log(msg: str, level: str = "info"):
+    print(f"[{level.upper()}] {msg}")
+
+
 class FridaServerManager(ABC):
     """
     Abstract base class for managing the Frida server process on different platforms.
@@ -9,7 +13,7 @@ class FridaServerManager(ABC):
     """
 
     def __init__(self, config: FridaConfig, log_callback=None):
-        self.log = log_callback or print
+        self.log = log_callback or _default_log
         self.config = config
 
     @abstractmethod

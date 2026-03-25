@@ -27,10 +27,10 @@ class AndroidServerManager(FridaServerManager):
             if "device" in result.stdout and not result.stdout.strip().endswith("devices"):
                 return True
             else:
-                self.log(f"No Android device connected via {self.config.adb_path}", error=True)
+                self.log(f"No Android device connected via {self.config.adb_path}", level="error")
                 return False
         except FileNotFoundError:
-            self.log(f"{self.config.adb_path} not found in PATH", error=True)
+            self.log(f"{self.config.adb_path} not found in PATH", level="error")
             return False
 
     def setup_port_forward(self):
@@ -54,11 +54,11 @@ class AndroidServerManager(FridaServerManager):
                 self.log(f"Port forwarding established: localhost:{port} -> device:{port}")
                 return True
             else:
-                self.log(f"Failed to setup port forwarding: {result.stderr}", error=True)
+                self.log(f"Failed to setup port forwarding: {result.stderr}", level="error")
                 return False
 
         except Exception as e:
-            self.log(f"Error setting up port forwarding: {str(e)}", error=True)
+            self.log(f"Error setting up port forwarding: {str(e)}", level="error")
             return False
 
     def _get_full_server_path(self) -> str:
@@ -110,8 +110,8 @@ class AndroidServerManager(FridaServerManager):
             )
 
             if "No such file" in check_result.stderr or "No such file" in check_result.stdout:
-                self.log(f"File not found: {server_path}", error=True)
-                self.log("Please check the path and ensure frida-server is pushed to device", error=True)
+                self.log(f"File not found: {server_path}", level="error")
+                self.log("Please check the path and ensure frida-server is pushed to device", level="error")
                 return False
 
             # Set execute permission
@@ -157,11 +157,11 @@ class AndroidServerManager(FridaServerManager):
                     self.log("Frida server started successfully (daemonize)")
                     return True
                 else:
-                    self.log("Failed to start frida server", error=True)
+                    self.log("Failed to start frida server", level="error")
                     if start_result.stdout:
-                        self.log(f"Debug info: {start_result.stdout}", error=True)
+                        self.log(f"Debug info: {start_result.stdout}", level="error")
                     if start_result.stderr:
-                        self.log(f"Error: {start_result.stderr}", error=True)
+                        self.log(f"Error: {start_result.stderr}", level="error")
                     return False
 
         except subprocess.TimeoutExpired:
@@ -170,11 +170,11 @@ class AndroidServerManager(FridaServerManager):
                 self.log("Frida server started successfully")
                 return True
             else:
-                self.log("Server may be starting, please check status", error=True)
+                self.log("Server may be starting, please check status", level="error")
                 return False
 
         except Exception as e:
-            self.log(f"Error starting frida server: {str(e)}", error=True)
+            self.log(f"Error starting frida server: {str(e)}", level="error")
             return False
 
     def stop_frida_server(self) -> bool:
@@ -194,7 +194,7 @@ class AndroidServerManager(FridaServerManager):
             return True
 
         except Exception as e:
-            self.log(f"Error stopping frida server: {str(e)}", error=True)
+            self.log(f"Error stopping frida server: {str(e)}", level="error")
             return False
 
     def check_frida_status(self, silent=False) -> bool:
@@ -227,7 +227,7 @@ class AndroidServerManager(FridaServerManager):
 
         except Exception as e:
             if not silent:
-                self.log(f"Error checking frida status: {str(e)}", error=True)
+                self.log(f"Error checking frida status: {str(e)}", level="error")
             return False
 
     def execute_custom_command(self, command):
@@ -258,11 +258,11 @@ class AndroidServerManager(FridaServerManager):
                 self.log("Frida server started successfully via manual command")
                 return True
             else:
-                self.log("Server not detected, output:", error=True)
+                self.log("Server not detected, output:", level="error")
                 if result.stdout:
                     self.log(result.stdout)
                 if result.stderr:
-                    self.log(result.stderr, error=True)
+                    self.log(result.stderr, level="error")
                 return False
 
         except subprocess.TimeoutExpired:
@@ -274,5 +274,5 @@ class AndroidServerManager(FridaServerManager):
             return False
 
         except Exception as e:
-            self.log(f"Error executing command: {str(e)}", error=True)
+            self.log(f"Error executing command: {str(e)}", level="error")
             return False

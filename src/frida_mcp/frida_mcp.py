@@ -513,7 +513,7 @@ def get_device(
         Dict with status, id, name, and type
     """
     try:
-        _device = frida.get_device(device_id)
+        _device = _get_device(device_id)
         return {
             "status": "success",
             "id": _device.id,
@@ -859,7 +859,7 @@ def injector_init() -> Dict[str, Any]:
         if CONFIG.device_id is None:
             return {
                 "status": "error",
-                "message": "Device Id not Set. Please call config_set first."
+                "message": "device_id is not set."
             }
 
         if getattr(CONFIG, "os", None) == "Android":
@@ -869,7 +869,7 @@ def injector_init() -> Dict[str, Any]:
         else:
             return {
                 "status": "error",
-                "message": f"OS {getattr(CONFIG, "os", None)} is not supported."
+                "message": f"OS '{getattr(CONFIG, 'os', None)}' is not supported."
             }
         return {
             "status": "success",
@@ -905,7 +905,12 @@ async def attach(
             "message": "Target cannot be empty"
         }
 
-    injector_init()
+    init_result = injector_init()
+    if init_result["status"] == "error":
+        return {
+            "status": "error",
+            "message": f"{init_result['message']} Use config_set to configure device_id and os."
+        }
 
     # 使用新的injector架构，device已在初始化时传入
     attach_result = await injector.attach(target.strip())
@@ -949,7 +954,12 @@ async def spawn(
             "message": "Package name cannot be empty"
         }
 
-    injector_init()
+    init_result = injector_init()
+    if init_result["status"] == "error":
+        return {
+            "status": "error",
+            "message": f"{init_result['message']} Use config_set to configure device_id and os."
+        }
 
     spawn_result = await injector.spawn(package_name.strip(), args.strip() if args else "")
     if spawn_result['error']:
@@ -1089,7 +1099,7 @@ async def inject_user_script_run(
 
 @mcp.tool()
 async def inject_user_script_run_all(
-        script_content: Annotated[Optional[str], "Optional JavaScript code to add before execution"] = None,
+        script_content: Annotated[str, "Optional JavaScript code to add before execution"] = "",
         script_name: Annotated[str, "Identifier for the script section"] = "custom_script",
 ) -> Dict[str, Any]:
     """

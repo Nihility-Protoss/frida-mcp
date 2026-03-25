@@ -60,7 +60,7 @@ class WindowsServerManager(FridaServerManager):
             )
             return True
         except Exception as e:
-            self.log(f"Failed to start frida-server: {str(e)}", error=True)
+            self.log(f"Failed to start frida-server: {str(e)}", level="error")
             return False
 
     def stop_frida_server(self) -> bool:
@@ -104,5 +104,5 @@ class WindowsServerManager(FridaServerManager):
             return is_running
         except Exception as e:
             if not silent:
-                self.log(f"Error checking status: {str(e)}", error=True)
+                self.log(f"Error checking status: {str(e)}", level="error")
             return False
