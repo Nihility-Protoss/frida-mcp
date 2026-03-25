@@ -19,7 +19,7 @@ from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 from util.message_class import MessageLog
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 # Global MCP server settings
 MCP_HOST: str = "0.0.0.0"
@@ -1421,7 +1421,7 @@ def android_load_hook_activity(
 
 @mcp.tool()
 def android_load_hook_crypto(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load encryption/decryption operations hook script.
@@ -1449,8 +1449,8 @@ def android_load_hook_crypto(
 
 @mcp.tool()
 def android_load_hook_java_common(
-    target_key: Annotated[str, "Target Map key to monitor (optional, e.g., 'password' or 'token')"] = "",
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        target_key: Annotated[str, "Target Map key to monitor (optional, e.g., 'password' or 'token')"] = "",
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load common Java class hook script.
@@ -1481,11 +1481,12 @@ def android_load_hook_java_common(
 
 @mcp.tool()
 def android_load_hook_native_common(
-    block_so_name: Annotated[str, "SO library name to block from loading (e.g., 'libprotect.so')"] = "",
-    newstringutf_filter: Annotated[str, "Filter string for NewStringUTF hooking"] = "",
-    newstringutf_length: Annotated[int, "Exact string length to filter for NewStringUTF hooking"] = 0,
-    register_target_class: Annotated[str, "Target class name for RegisterNatives hooking (e.g., 'com.example.NativeLib')"] = "",
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        block_so_name: Annotated[str, "SO library name to block from loading (e.g., 'libprotect.so')"] = "",
+        newstringutf_filter: Annotated[str, "Filter string for NewStringUTF hooking"] = "",
+        newstringutf_length: Annotated[int, "Exact string length to filter for NewStringUTF hooking"] = 0,
+        register_target_class: Annotated[
+            str, "Target class name for RegisterNatives hooking (e.g., 'com.example.NativeLib')"] = "",
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load common native layer hook script.
@@ -1521,7 +1522,7 @@ def android_load_hook_native_common(
 
 @mcp.tool()
 def android_load_hook_dex(
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load DEX loading monitoring script.
@@ -1549,12 +1550,12 @@ def android_load_hook_dex(
 
 @mcp.tool()
 def android_load_delay_hook(
-    target_so: Annotated[str, "Target SO name to wait for before hooking (empty for time delay)"] = "",
-    delay_ms: Annotated[int, "Delay in milliseconds if target_so is empty"] = 1000,
-    target_function: Annotated[str, "Native function name to hook"] = "",
-    target_class: Annotated[str, "Java class name to hook (e.g., 'com.example.Main')"] = "",
-    target_method: Annotated[str, "Java method name to hook"] = "",
-    run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
+        target_so: Annotated[str, "Target SO name to wait for before hooking (empty for time delay)"] = "",
+        delay_ms: Annotated[int, "Delay in milliseconds if target_so is empty"] = 1000,
+        target_function: Annotated[str, "Native function name to hook"] = "",
+        target_class: Annotated[str, "Java class name to hook (e.g., 'com.example.Main')"] = "",
+        target_method: Annotated[str, "Java method name to hook"] = "",
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute"] = False,
 ) -> Dict[str, Any]:
     """
     Load delayed hook template script.

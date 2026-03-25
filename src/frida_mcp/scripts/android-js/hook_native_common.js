@@ -1,7 +1,7 @@
 /**
  * Common Native Layer Hooks
  * Hook common native functions: SO loading, NewStringUTF, RegisterNatives
- * 
+ *
  * Dependencies: android_base_utils.js
  * Usage: frida -Uf com.package.name -l android_base_utils.js -l hook_native_common.js
  * Frida 17 Compatible
@@ -45,7 +45,7 @@ function HookNative_blockSo() {
  */
 function HookNative_newStringUTF() {
     var filterFunc;
-    
+
     if (HookNative_CONFIG.newStringUTFLength > 0) {
         filterFunc = function (str) {
             return str.length === HookNative_CONFIG.newStringUTFLength;
@@ -59,12 +59,12 @@ function HookNative_newStringUTF() {
             return str.length > 20;
         };
     }
-    
+
     FridaUtils.hookNewStringUTF(filterFunc, function (str, backtrace) {
         console.log("\n[NewStringUTF] String:", str.substring(0, 200));
         console.log("Call Stack:\n" + backtrace);
     });
-    
+
     console.log("[+] NewStringUTF hooked");
 }
 
@@ -76,7 +76,7 @@ function HookNative_registerNatives() {
         console.log("[-] RegisterNatives target not configured");
         return;
     }
-    
+
     FridaUtils.hookRegisterNatives(HookNative_CONFIG.registerNativesTarget, function (className, methods) {
         console.log("\n[RegisterNatives] Target class:", className);
         for (var i = 0; i < methods.length; i++) {
@@ -85,7 +85,7 @@ function HookNative_registerNatives() {
             console.log("       SO:", m.module, "| Offset:", m.offset);
         }
     });
-    
+
     console.log("[+] RegisterNatives hooked");
 }
 
@@ -98,7 +98,7 @@ function HookNative_commonFuncs() {
             console.log("[pthread_create] Thread creation detected");
         }
     });
-    
+
     FridaUtils.safeHook("libc.so", "open", {
         onEnter: function (args) {
             var path = args[0].readCString();
@@ -107,20 +107,21 @@ function HookNative_commonFuncs() {
             }
         }
     });
-    
+
     FridaUtils.safeHook("libc.so", "socket", {
         onLeave: function (retval) {
             console.log("[socket] Created socket fd:", retval.toInt32());
         }
     });
-    
+
     FridaUtils.safeHook("libc.so", "connect", {
         onEnter: function (args) {
             var fd = args[0].toInt32();
             try {
                 var sockInfo = FridaUtils.getSocketData(fd);
                 console.log("[connect] fd:", fd, sockInfo);
-            } catch (e) {}
+            } catch (e) {
+            }
         }
     });
 }
@@ -131,23 +132,23 @@ function HookNative_commonFuncs() {
 function HookNative_main() {
     Java.perform(function () {
         console.log("[*] Common Native Hooks Started");
-        
+
         if (HookNative_CONFIG.monitorSoLoad) {
             HookNative_monitorSo();
         }
-        
+
         HookNative_blockSo();
-        
+
         if (HookNative_CONFIG.hookNewStringUTF) {
             HookNative_newStringUTF();
         }
-        
+
         if (HookNative_CONFIG.hookRegisterNatives) {
             HookNative_registerNatives();
         }
-        
+
         HookNative_commonFuncs();
-        
+
         console.log("[*] All native hooks installed");
     });
 }

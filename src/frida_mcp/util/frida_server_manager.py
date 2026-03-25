@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from config.default_config import FridaConfig
 
 

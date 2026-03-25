@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from test_utils import MCPTestClient, run_test_suite
+from test_utils import MCPTestClient
 
 
 async def test_connection():

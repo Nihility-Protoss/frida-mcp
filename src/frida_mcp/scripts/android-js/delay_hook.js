@@ -1,7 +1,7 @@
 /**
  * Delay Hook Template
  * Execute hook after SO load or time delay
- * 
+ *
  * Dependencies: android_base_utils.js
  * Usage: frida -Uf com.package.name -l android_base_utils.js -l delay_hook.js
  * Frida 17 Compatible
@@ -10,18 +10,27 @@
 // Configuration
 var DelayHook_CONFIG = {
     targetSo: "{{target_so}}",
-    delayMs: {{delay_ms}},
-    targetFunction: "{{target_function}}",
-    targetClass: "{{target_class}}",
-    targetMethod: "{{target_method}}"
-};
+    delayMs: {
+{
+    delay_ms
+}
+},
+targetFunction: "{{target_function}}",
+    targetClass
+:
+"{{target_class}}",
+    targetMethod
+:
+"{{target_method}}"
+}
+;
 
 /**
  * Custom hook logic
  */
 function DelayHook_installHooks() {
     console.log("[*] Installing custom hooks...");
-    
+
     if (DelayHook_CONFIG.targetSo && !DelayHook_CONFIG.targetSo.includes("{{")) {
         FridaUtils.safeHook(DelayHook_CONFIG.targetSo, DelayHook_CONFIG.targetFunction, {
             onEnter: function (args) {
@@ -32,19 +41,18 @@ function DelayHook_installHooks() {
             }
         });
     }
-    
+
     if (DelayHook_CONFIG.targetClass && !DelayHook_CONFIG.targetClass.includes("{{")) {
         FridaUtils.hookJavaMethod(DelayHook_CONFIG.targetClass, DelayHook_CONFIG.targetMethod, null, function () {
             console.log("[Hook]", DelayHook_CONFIG.targetMethod, "called");
             return this[DelayHook_CONFIG.targetMethod].apply(this, arguments);
         });
     }
-    
+
     // Add your custom hook logic here
     // ========================================
-    
-    
-    
+
+
     // ========================================
 }
 

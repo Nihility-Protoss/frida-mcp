@@ -2,8 +2,8 @@
 Test configuration management tools: config_get, config_set, config_save, config_init
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 from typing import Dict, Any
 

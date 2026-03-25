@@ -1,7 +1,7 @@
 /**
  * Common Java Layer Hooks
  * Hook common Java classes: Map, StringBuilder, Base64, Dialog, Toast
- * 
+ *
  * Dependencies: android_base_utils.js
  * Usage: frida -Uf com.package.name -l android_base_utils.js -l hook_java_common.js
  * Frida 17 Compatible
@@ -39,7 +39,7 @@ function HookJava_mapOperations() {
     } catch (e) {
         console.log("[-] TreeMap hook failed:", e.message);
     }
-    
+
     try {
         var HashMap = Java.use('java.util.HashMap');
         HashMap.put.implementation = function (key, value) {
@@ -51,7 +51,8 @@ function HookJava_mapOperations() {
             return this.put(key, value);
         };
         console.log("[+] HashMap.put hooked");
-    } catch (e) {}
+    } catch (e) {
+    }
 }
 
 /**
@@ -71,7 +72,7 @@ function HookJava_stringBuilder() {
     } catch (e) {
         console.log("[-] StringBuilder hook failed:", e.message);
     }
-    
+
     try {
         var StringBuffer = Java.use("java.lang.StringBuffer");
         StringBuffer.toString.implementation = function () {
@@ -82,7 +83,8 @@ function HookJava_stringBuilder() {
             return result;
         };
         console.log("[+] StringBuffer.toString hooked");
-    } catch (e) {}
+    } catch (e) {
+    }
 }
 
 /**
@@ -91,7 +93,7 @@ function HookJava_stringBuilder() {
 function HookJava_base64() {
     try {
         var Base64 = Java.use("android.util.Base64");
-        
+
         Base64.encodeToString.overload('[B', 'int').implementation = function (data, flags) {
             var result = this.encodeToString(data, flags);
             console.log("[Base64] Encoded:", result.substring(0, 100));
@@ -115,8 +117,9 @@ function HookJava_dialog() {
             return this.show.apply(this, arguments);
         };
         console.log("[+] AlertDialog.Builder.show hooked");
-    } catch (e) {}
-    
+    } catch (e) {
+    }
+
     try {
         var Dialog = Java.use("android.app.Dialog");
         Dialog.show.implementation = function () {
@@ -128,7 +131,8 @@ function HookJava_dialog() {
             return this.show.apply(this, arguments);
         };
         console.log("[+] Dialog.show hooked");
-    } catch (e) {}
+    } catch (e) {
+    }
 }
 
 /**
@@ -137,17 +141,19 @@ function HookJava_dialog() {
 function HookJava_toast() {
     try {
         var Toast = Java.use("android.widget.Toast");
-        
+
         Toast.show.implementation = function () {
             try {
                 var text = this.getText() ? this.getText().toString() : "N/A";
                 console.log("\n[Toast] Content:", text);
                 FridaUtils.showStacks("Toast.show");
-            } catch (e) {}
+            } catch (e) {
+            }
             return this.show.apply(this, arguments);
         };
         console.log("[+] Toast.show hooked");
-    } catch (e) {}
+    } catch (e) {
+    }
 }
 
 /**
@@ -173,31 +179,31 @@ function HookJava_snackbar() {
 function HookJava_main() {
     Java.perform(function () {
         console.log("[*] Common Java Hooks Started");
-        
+
         if (HookJava_CONFIG.hookMap) {
             HookJava_mapOperations();
         }
-        
+
         if (HookJava_CONFIG.hookStringBuilder) {
             HookJava_stringBuilder();
         }
-        
+
         if (HookJava_CONFIG.hookBase64) {
             HookJava_base64();
         }
-        
+
         if (HookJava_CONFIG.hookDialog) {
             HookJava_dialog();
         }
-        
+
         if (HookJava_CONFIG.hookToast) {
             HookJava_toast();
         }
-        
+
         if (HookJava_CONFIG.hookSnackbar) {
             HookJava_snackbar();
         }
-        
+
         console.log("[*] All Java hooks installed");
     });
 }

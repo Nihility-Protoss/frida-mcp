@@ -11,8 +11,8 @@ This module provides common functionality for all test files including:
 import asyncio
 import json
 import sys
-from typing import Dict, Any, Optional, Callable, List
 from pathlib import Path
+from typing import Dict, Any, Optional, List
 
 # Setup path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -30,20 +30,20 @@ DEFAULT_URL = "http://192.168.40.129:8032/mcp"
 
 class MCPTestClient:
     """Wrapper for MCP client with common test operations."""
-    
+
     def __init__(self, url: str = DEFAULT_URL):
         self.url = url
         self._client: Optional[Client] = None
-    
+
     async def __aenter__(self):
         self._client = Client(self.url)
         await self._client.__aenter__()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._client:
             await self._client.__aexit__(exc_type, exc_val, exc_tb)
-    
+
     async def call(self, tool_name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
         """Call an MCP tool and parse the response."""
         try:
@@ -51,7 +51,7 @@ class MCPTestClient:
             return self._parse_result(result)
         except Exception as e:
             return {"status": "error", "message": str(e)}
-    
+
     @staticmethod
     def _parse_result(result) -> Dict[str, Any]:
         """Parse MCP tool result into a standard dict."""
@@ -61,7 +61,7 @@ class MCPTestClient:
             except json.JSONDecodeError:
                 return {"status": "error", "message": "Invalid JSON response"}
         return {"status": "error", "message": "Empty or invalid response"}
-    
+
     # Common test operations
     async def spawn(self, package_name: str, args: str = "") -> Dict[str, Any]:
         """Spawn a process and return result."""
@@ -72,7 +72,7 @@ class MCPTestClient:
         else:
             print(f"[-] Spawn failed: {result.get('message', 'Unknown error')}")
         return result
-    
+
     async def attach(self, target: str) -> Dict[str, Any]:
         """Attach to a running process."""
         print(f"[*] Attaching to: {target}")
@@ -82,7 +82,7 @@ class MCPTestClient:
         else:
             print(f"[-] Attach failed: {result.get('message', 'Unknown error')}")
         return result
-    
+
     async def detach(self) -> Dict[str, Any]:
         """Detach from current session."""
         print(f"[*] Detaching...")
@@ -90,14 +90,14 @@ class MCPTestClient:
         status = "success" if result.get("status") == "success" else "error"
         print(f"[+] Detached" if status == "success" else f"[-] Detach failed: {result.get('message')}")
         return result
-    
+
     async def get_session_info(self) -> Dict[str, Any]:
         """Get current session information."""
         result = await self.call("get_session_info")
         if result.get("status") == "success":
             print(f"[+] Session: {result.get('target')} (PID: {result.get('pid')})")
         return result
-    
+
     async def inject_script(self, script_content: str, script_name: str = "test_script") -> Dict[str, Any]:
         """Inject and run a script."""
         print(f"[*] Injecting script: {script_name}")
@@ -110,7 +110,7 @@ class MCPTestClient:
         else:
             print(f"[-] Inject failed: {result.get('message', 'Unknown error')}")
         return result
-    
+
     async def get_new_messages(self) -> List[str]:
         """Get new log messages."""
         result = await self.call("get_new_messages")
@@ -120,7 +120,7 @@ class MCPTestClient:
             for msg in messages:
                 print(f"    {msg}")
         return messages
-    
+
     async def get_messages(self, max_messages: int = 1000) -> List[str]:
         """Get log messages from the global log buffer.
         
@@ -140,7 +140,7 @@ class MCPTestClient:
         else:
             print(f"[*] No messages retrieved ({remaining} remaining)")
         return messages
-    
+
     async def load_script(self, tool_name: str, **kwargs) -> Dict[str, Any]:
         """Load a built-in script."""
         print(f"[*] Loading script: {tool_name}")
@@ -154,43 +154,43 @@ class MCPTestClient:
 
 class TestRunner:
     """Base class for running test suites."""
-    
+
     def __init__(self, url: str = DEFAULT_URL):
         self.url = url
         self.results: Dict[str, Dict[str, Any]] = {}
-    
+
     def print_header(self, title: str):
         """Print test header."""
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"  {title}")
-        print(f"{'='*50}")
-    
+        print(f"{'=' * 50}")
+
     def print_section(self, title: str):
         """Print test section."""
         print(f"\n[{title}]")
         print("-" * 40)
-    
+
     def record(self, name: str, result: Dict[str, Any]):
         """Record a test result."""
         self.results[name] = result
         return result
-    
+
     def print_summary(self):
         """Print test summary."""
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("Test Summary:")
-        print(f"{'='*50}")
-        
+        print(f"{'=' * 50}")
+
         passed = sum(1 for r in self.results.values() if r.get("status") == "success")
         total = len(self.results)
-        
+
         for name, result in self.results.items():
             status = "✓" if result.get("status") == "success" else "✗"
             print(f"  {status} {name}")
-        
+
         print(f"\nTotal: {passed}/{total} passed")
         return passed == total
-    
+
     async def run(self):
         """Override this method in subclasses."""
         raise NotImplementedError("Subclasses must implement run()")
@@ -199,6 +199,7 @@ class TestRunner:
 # Convenience function for running tests
 def run_test_suite(runner_class: type, url: str = DEFAULT_URL):
     """Run a test suite class."""
+
     async def main():
         runner = runner_class(url)
         try:
@@ -206,7 +207,7 @@ def run_test_suite(runner_class: type, url: str = DEFAULT_URL):
         except Exception as e:
             print(f"\n[!] Test suite error: {e}")
             raise
-    
+
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

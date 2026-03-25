@@ -1,5 +1,5 @@
-import subprocess
 import os
+import subprocess
 
 from config.default_config import FridaConfig
 from .frida_server_manager import FridaServerManager

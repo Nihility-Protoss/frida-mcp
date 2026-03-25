@@ -8,7 +8,7 @@ from typing import Dict, Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from test_utils import MCPTestClient, TestRunner, run_test_suite, DEFAULT_URL
+from test_utils import MCPTestClient, TestRunner, run_test_suite
 
 
 class InjectionTestRunner(TestRunner):

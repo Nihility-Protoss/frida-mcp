@@ -1,7 +1,7 @@
 /**
  * Clone System Call Hook
  * Monitor thread creation via clone() system call
- * 
+ *
  * Dependencies: android_base_utils.js
  * Usage: frida -Uf com.package.name -l android_base_utils.js -l hook_clone.js
  * Frida 17 Compatible
@@ -22,9 +22,9 @@ function HookClone_doHook() {
         console.log("[-] clone() not found in libc.so");
         return;
     }
-    
+
     console.log("[*] Hooking clone() at", clone);
-    
+
     Interceptor.attach(clone, {
         onEnter: function (args) {
             console.log("\n═══ Clone Called ═══");
@@ -32,18 +32,18 @@ function HookClone_doHook() {
             console.log("  args[1] (stack):  ", args[1]);
             console.log("  args[2] (flags):  ", args[2]);
             console.log("  args[3] (tls):    ", args[3]);
-            
+
             if (args[3] != 0) {
                 try {
                     var realFunc = args[3].add(96).readPointer();
                     var moduleInfo = FridaUtils.getModuleInfoByAddress(realFunc);
-                    
+
                     if (moduleInfo) {
                         console.log("  线程函数:");
                         console.log("    SO名称:  ", moduleInfo.name);
                         console.log("    函数地址:", moduleInfo.address);
                         console.log("    偏移:    ", moduleInfo.offset);
-                        
+
                         var shouldShow = HookClone_CONFIG.showAllThreads;
                         if (HookClone_CONFIG.targetSoName && !HookClone_CONFIG.targetSoName.includes("{{")) {
                             if (moduleInfo.name.includes(HookClone_CONFIG.targetSoName)) {
@@ -51,7 +51,7 @@ function HookClone_doHook() {
                                 shouldShow = true;
                             }
                         }
-                        
+
                         if (!shouldShow) {
                             console.log("  (filtered)");
                         }
@@ -62,7 +62,7 @@ function HookClone_doHook() {
             }
         }
     });
-    
+
     console.log("[+] clone() hooked");
 }
 

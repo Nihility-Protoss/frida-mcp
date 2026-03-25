@@ -104,11 +104,11 @@ class AndroidScriptManager(ScriptManager):
         )
 
     def load_hook_native_common(
-        self,
-        block_so_name: str = "",
-        newstringutf_filter: str = "",
-        newstringutf_length: int = 0,
-        register_target_class: str = ""
+            self,
+            block_so_name: str = "",
+            newstringutf_filter: str = "",
+            newstringutf_length: int = 0,
+            register_target_class: str = ""
     ) -> Dict[str, Any]:
         """加载常用Native层Hook脚本
         Hook SO加载、NewStringUTF、RegisterNatives等
@@ -138,12 +138,12 @@ class AndroidScriptManager(ScriptManager):
         return self.load_script_from_file(this_script_filename)
 
     def load_delay_hook(
-        self,
-        target_so: str = "",
-        delay_ms: int = 1000,
-        target_function: str = "",
-        target_class: str = "",
-        target_method: str = ""
+            self,
+            target_so: str = "",
+            delay_ms: int = 1000,
+            target_function: str = "",
+            target_class: str = "",
+            target_method: str = ""
     ) -> Dict[str, Any]:
         """加载延迟Hook模板脚本，支持按SO加载或按时间延迟执行Hook
         Args:

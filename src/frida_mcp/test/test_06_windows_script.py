@@ -16,7 +16,7 @@ class WindowsFastScriptRunner(TestRunner):
 
     # Configuration
     target_package: str = r"C:\Windows\System32\notepad.exe"
-    target_args: str = ""
+    target_args: str = r""
 
     async def test_fast_file_monitor(self, client: MCPTestClient) -> Dict[str, Any]:
         """Test windows_fast_load_all_monitor_file."""

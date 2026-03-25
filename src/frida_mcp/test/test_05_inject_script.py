@@ -4,7 +4,6 @@ Test script management and platform-specific script loading
 
 import sys
 from pathlib import Path
-from typing import Dict, Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 

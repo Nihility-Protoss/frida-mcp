@@ -28,7 +28,12 @@ function AntiMain_nopFunc(addr) {
 
 function AntiMain_bypass_detect() {
     var base = Module.findBaseAddress("libDexHelper.so");
-    var hook_addr_list = {{hook_addr_list}};
+    var hook_addr_list = {
+    {
+        hook_addr_list
+    }
+}
+    ;
     for (const hookAddrListKey in hook_addr_list) {
         AntiMain_nopFunc(base.add(hookAddrListKey));
     }

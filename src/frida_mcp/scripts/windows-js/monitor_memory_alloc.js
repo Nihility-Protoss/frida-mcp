@@ -118,8 +118,8 @@ function requestMemoryDump(address, size, apiName, reason) {
     let memoryData = null;
     try {
         // 确保 address 是 NativePointer 类型
-        const targetPtr = (address && typeof address.readByteArray === 'function') 
-            ? address 
+        const targetPtr = (address && typeof address.readByteArray === 'function')
+            ? address
             : new NativePointer(address.toString());
         memoryData = targetPtr.readByteArray(actualSize);
     } catch (e) {
@@ -317,10 +317,10 @@ function createMemoryAllocOnEnter(apiName) {
         if ((apiName === "VirtualProtect" || apiName === "VirtualProtectEx") && (protect & 0xFF) === PROT_RX) {
             try {
                 this.memoryData.preTransitionDumped = true;
-                
+
                 // 立即 dump 转换前的内存内容
                 requestMemoryDump(address, size, apiName, "Pre-transition dump (before RX)");
-                
+
                 sendExecutableAlert(address, size, protect, apiName, "pre_transition_dump", {
                     targetProtect: parseMemoryProtection(protect)
                 });

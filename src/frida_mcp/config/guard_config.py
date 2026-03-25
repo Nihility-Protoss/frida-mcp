@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+
 from .default_config import FridaConfig
 
 
