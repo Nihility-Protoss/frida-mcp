@@ -47,6 +47,15 @@ const MEMORY_ALLOCATION_TYPE = {
 const trackedMemoryRegions = new Map();
 
 /**
+ * 跟踪的堆句柄存储 (HeapCreate -> 是否可执行)
+ * key: heapHandle (string), value: {isExecutable, size, timestamp}
+ */
+const trackedHeaps = new Map();
+
+// HEAP_CREATE_ENABLE_EXECUTE 标志
+const HEAP_CREATE_ENABLE_EXECUTE = 0x00040000;
+
+/**
  * 解析内存保护标志
  */
 function parseMemoryProtection(protect) {
@@ -293,14 +302,23 @@ function createMemoryAllocOnEnter(apiName) {
 
             case "HeapCreate":
                 const heapFlags = safeToUInt32(safeArg(args, 0));
-                size = safeToUInt32(safeArg(args, 2));
-                if (heapFlags & 0x00020000) {
-                    protect = PROT_RWX;
-                }
+                // dwInitialSize (args[1]) 和 dwMaximumSize (args[2]) 在 onEnter 时不需要
+                // 只需要记录 flags，用于 onLeave 判断
+                this.heapFlags = heapFlags;
                 break;
 
             case "HeapAlloc":
+                const hHeap = safeArg(args, 0);
+                const allocFlags = safeToUInt32(safeArg(args, 1));
                 size = safeToUInt32(safeArg(args, 2));
+                this.hHeap = hHeap;
+                this.allocFlags = allocFlags;
+                // 查询该堆是否可执行
+                const heapInfo = trackedHeaps.get(hHeap.toString());
+                if (heapInfo && heapInfo.isExecutable) {
+                    protect = PROT_RWX; // 标记为可执行，触发后续 dump 流程
+                    this.memoryData.isHeapExecutable = true;
+                }
                 break;
 
             case "CreateFiber":
@@ -317,7 +335,7 @@ function createMemoryAllocOnEnter(apiName) {
                 break;
         }
 
-        // 保存数据供onLeave使用
+        // 保存数据供 onLeave 使用
         this.memoryData = {
             apiName,
             inputAddress: address,
@@ -327,20 +345,8 @@ function createMemoryAllocOnEnter(apiName) {
             isExecutableRequest: isExecutableProtection(protect)
         };
 
-        // 标记 VirtualAlloc/VirtualAllocEx 需要在 onLeave 时输出日志
-        if (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx") {
-            this.memoryData.logOnLeave = true;
-        }
-
-        // 对于 HeapAlloc：只有涉及可执行权限时才记录，减少无效日志污染
-        if (apiName === "HeapAlloc") {
-            if (!isExecutableProtection(protect)) {
-                return;
-            }
-        }
-
-        // 对于 VirtualAlloc/VirtualAllocEx：延迟到 onLeave 输出（使用返回地址）
-        if (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx") {
+        // HeapCreate 和 HeapAlloc 的日志在 onLeave 输出
+        if (apiName === "HeapCreate" || apiName === "HeapAlloc") {
             return;
         }
 
@@ -392,12 +398,29 @@ function createMemoryAllocOnLeave(apiName) {
             }
 
             // VirtualAlloc/VirtualAllocEx 在 onLeave 时输出日志（使用返回地址）
-            if (data.logOnLeave && (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx")) {
+            if (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx") {
                 const protStr = parseMemoryProtection(data.protect);
                 const typeStr = data.allocType ? parseAllocationType(data.allocType) : null;
                 const typePart = typeStr ? `, type=${typeStr}` : '';
                 const addrStr = actualAddress ? '0x' + actualAddress.toString(16) : 'NULL';
                 console.log(`[M] ${apiName}: addr=${addrStr}, size=0x${data.size.toString(16)}, prot=${protStr}${typePart}`);
+            }
+
+            // HeapCreate 在 onLeave 时输出日志并保存堆句柄
+            if (apiName === "HeapCreate") {
+                const isExecutable = (this.heapFlags & HEAP_CREATE_ENABLE_EXECUTE) !== 0;
+                trackedHeaps.set(actualAddress.toString(), {
+                    isExecutable: isExecutable,
+                    flags: this.heapFlags,
+                    timestamp: Date.now()
+                });
+                console.log(`[M] HeapCreate: handle=0x${actualAddress.toString(16)}, flags=0x${this.heapFlags.toString(16)}, executable=${isExecutable}`);
+            }
+
+            // HeapAlloc 在可执行堆上分配时输出日志
+            if (apiName === "HeapAlloc" && data.isHeapExecutable) {
+                const hHeapStr = this.hHeap ? '0x' + this.hHeap.toString(16) : 'NULL';
+                console.log(`[M] HeapAlloc: addr=0x${actualAddress.toString(16)}, size=0x${data.size.toString(16)}, hHeap=${hHeapStr}, flags=0x${this.allocFlags.toString(16)} [EXECUTABLE_HEAP]`);
             }
 
             // 查询实际内存保护
@@ -406,8 +429,8 @@ function createMemoryAllocOnLeave(apiName) {
             let reason = "";
             let extraInfo = {};
 
-            // 检查是否为可执行内存
-            if (isExecutableProtection(actualProtect)) {
+            // 检查是否为可执行内存（或来自可执行堆的 HeapAlloc）
+            if (isExecutableProtection(actualProtect) || data.isHeapExecutable) {
                 // 检查是否已存在跟踪记录（可能是VirtualProtect转换）
                 const addrStr = actualAddress.toString();
                 const existingRegion = trackedMemoryRegions.get(addrStr);
