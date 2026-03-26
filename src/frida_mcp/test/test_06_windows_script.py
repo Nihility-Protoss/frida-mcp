@@ -3,6 +3,7 @@ Test Windows fast-loading scripts (memory allocation and file monitoring)
 """
 
 import sys
+from time import sleep
 from pathlib import Path
 from typing import Dict, Any
 
@@ -89,9 +90,12 @@ class WindowsFastScriptRunner(TestRunner):
             # Get logs
             self.print_section("Logs")
             await client.get_new_messages()
+            sleep(5)
+            self.print_section("Sleep Logs")
+            await client.get_new_messages()
 
             # Cleanup
-            # await client.detach()
+            await client.detach()
 
             self.print_summary()
 

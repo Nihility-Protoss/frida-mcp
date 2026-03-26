@@ -108,15 +108,15 @@ function requestMemoryDump(address, size, apiName, reason) {
     // 限制 dump 大小
     let actualSize = size;
     if (size > MAX_DUMP_SIZE) {
-        console.log(`[MemoryMonitor] Region too large (${(size / 1024 / 1024).toFixed(2)}MB), dump limited to 10MB`);
+        console.log(`[Memory] Region too large (${(size / 1024 / 1024).toFixed(2)}MB), dump limited to 10MB`);
         actualSize = MAX_DUMP_SIZE;
     }
 
     const addrStr = address.toString(16);
 
-    // 跳过特定条件的小内存区域：size为8且地址以7F开头（通常是栈上的临时数据）
+    // 跳过特定条件的小内存区域：size为8（通常是重定位导入表）
     if (size === 8) {
-        console.log(`[MemoryMonitor] Skip dump: addr=0x${addrStr}, size=${size}, api=${apiName}, reason=${reason} (small stack data)`);
+        console.log(`[Memory] Skip dump: addr=0x${addrStr}, size=${size}, api=${apiName}, reason=${reason} (small realloc data)`);
         return null;
     }
 
@@ -131,8 +131,8 @@ function requestMemoryDump(address, size, apiName, reason) {
             : new NativePointer(address.toString());
         memoryData = targetPtr.readByteArray(actualSize);
     } catch (e) {
-        console.log(`[MemoryMonitor] Failed to read memory at 0x${address ? addrStr : 'NULL'}: ${e.message}`);
-        console.log(`[MemoryMonitor] Stack: ${e.stack}`);
+        console.log(`[Memory] Failed to read memory at 0x${address ? addrStr : 'NULL'}: ${e.message}`);
+        console.log(`[Memory] Stack: ${e.stack}`);
         return null;
     }
 
@@ -144,7 +144,7 @@ function requestMemoryDump(address, size, apiName, reason) {
     }, memoryData);
 
     // 其他信息以单行日志形式输出
-    console.log(`[MemoryMonitor] Dump info: addr=0x${addrStr}, size=${actualSize}${size > MAX_DUMP_SIZE ? '/' + size : ''}, api=${apiName}, reason=${reason}`);
+    console.log(`[Memory] Dump info: addr=0x${addrStr}, size=${actualSize}${size > MAX_DUMP_SIZE ? '/' + size : ''}, api=${apiName}, reason=${reason}`);
     return filename;
 }
 
@@ -157,7 +157,9 @@ function sendExecutableAlert(address, size, protection, apiName, action, extraIn
         return;
     }
     const addrStr = address ? '0x' + address.toString(16) : 'NULL';
-    const extraStr = extraInfo ? ', extra=' + JSON.stringify(extraInfo) : '';
+    // 只有当 extraInfo 有实际属性时才输出
+    const hasExtra = extraInfo && Object.keys(extraInfo).length > 0;
+    const extraStr = hasExtra ? ', extra=' + JSON.stringify(extraInfo) : '';
     console.log(`[EXECUTABLE_MEMORY_ALERT] api=${apiName}, addr=${addrStr}, size=0x${size.toString(16)}, prot=${parseMemoryProtection(protection)}, action=${action}${extraStr}`);
 }
 
@@ -246,10 +248,10 @@ function isProtectionTransition(oldProtect, newProtect) {
 
     // RW -> RX
     const isRwToRx = (oldBase === PROT_RW || oldBase === PROT_RWX) && newBase === PROT_RX;
-    // RWX -> RX
-    const isRwxToRx = oldBase === PROT_RWX && newBase === PROT_RX;
+    // RW -> RWX
+    const isRwToRWS = oldBase === PROT_RW && newBase === PROT_RWX;
 
-    return isRwToRx || isRwxToRx;
+    return isRwToRx || isRwToRWS;
 }
 
 /**
@@ -325,24 +327,11 @@ function createMemoryAllocOnEnter(apiName) {
             isExecutableRequest: isExecutableProtection(protect)
         };
 
-        // 对于 VirtualProtect 类型，如果目标为 RX 权限，在 onEnter 时就进行 dump（捕获转换前的内容）
-        if ((apiName === "VirtualProtect" || apiName === "VirtualProtectEx") && (protect & 0xFF) === PROT_RX) {
-            try {
-                this.memoryData.preTransitionDumped = true;
-
-                // 立即 dump 转换前的内存内容
-                requestMemoryDump(address, size, apiName, "Pre-transition dump (before RX)");
-
-                sendExecutableAlert(address, size, protect, apiName, "pre_transition_dump", {
-                    targetProtect: parseMemoryProtection(protect)
-                });
-            } catch (e) {
-                console.log(`[MemoryMonitor] Pre-transition dump failed: ${e.message}`);
-                throw e;
-            }
+        // 标记 VirtualAlloc/VirtualAllocEx 需要在 onLeave 时输出日志
+        if (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx") {
+            this.memoryData.logOnLeave = true;
         }
 
-        // 输出当前API调用信息
         // 对于 HeapAlloc：只有涉及可执行权限时才记录，减少无效日志污染
         if (apiName === "HeapAlloc") {
             if (!isExecutableProtection(protect)) {
@@ -350,17 +339,23 @@ function createMemoryAllocOnEnter(apiName) {
             }
         }
 
-        // 小内存区域（size=8）简化日志输出
-        if (size === 8) {
-            // console.log(`[MemoryMonitor] Small region: addr=0x${address ? address.toString(16) : 'NULL'}, api=${apiName}`);
+        // 对于 VirtualAlloc/VirtualAllocEx：延迟到 onLeave 输出（使用返回地址）
+        if (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx") {
             return;
         }
 
+        // 小内存区域（size=8）简化日志输出
+        if (size === 8) {
+            // console.log(`[Memory] Small region: addr=0x${address ? address.toString(16) : 'NULL'}, api=${apiName}`);
+            return;
+        }
+
+        // 输出当前API调用信息
         const protStr = parseMemoryProtection(protect);
         const typeStr = allocType ? parseAllocationType(allocType) : null;
         const typePart = typeStr ? `, type=${typeStr}` : '';
         const addrStr = address ? '0x' + address.toString(16) : 'NULL';
-        console.log(`[+] [M] ${apiName}: addr=${addrStr}, size=0x${size.toString(16)}, prot=${protStr}${typePart}`);
+        console.log(`[M] ${apiName}: addr=${addrStr}, size=0x${size.toString(16)}, prot=${protStr}${typePart}`);
     };
 }
 
@@ -370,7 +365,10 @@ function createMemoryAllocOnEnter(apiName) {
 function createMemoryAllocOnLeave(apiName) {
     return function (retval) {
         const data = this.memoryData;
-        if (!data) return;
+        if (!data) {
+            console.log(`[Memory] Skip: no memoryData for ${apiName}`);
+            return;
+        }
 
         try {
             const returnedAddress = retval;
@@ -384,27 +382,29 @@ function createMemoryAllocOnLeave(apiName) {
                 actualAddress = returnedAddress;
             }
 
-            if (!success || actualAddress.isNull()) {
+            if (!success) {
+                console.log(`[Memory] Skip: ${apiName} failed (retval is ${retval})`);
                 return;
+            }
+            if (actualAddress.isNull()) {
+                console.log(`[Memory] Skip: ${apiName} returned null address`);
+                return;
+            }
+
+            // VirtualAlloc/VirtualAllocEx 在 onLeave 时输出日志（使用返回地址）
+            if (data.logOnLeave && (apiName === "VirtualAlloc" || apiName === "VirtualAllocEx")) {
+                const protStr = parseMemoryProtection(data.protect);
+                const typeStr = data.allocType ? parseAllocationType(data.allocType) : null;
+                const typePart = typeStr ? `, type=${typeStr}` : '';
+                const addrStr = actualAddress ? '0x' + actualAddress.toString(16) : 'NULL';
+                console.log(`[M] ${apiName}: addr=${addrStr}, size=0x${data.size.toString(16)}, prot=${protStr}${typePart}`);
             }
 
             // 查询实际内存保护
             let actualProtect = data.protect;
             let shouldMonitor = false;
-            let dumpImmediately = false;
             let reason = "";
             let extraInfo = {};
-
-            try {
-                const memInfo = Memory.queryProtection(actualAddress);
-                if (memInfo) {
-                    actualProtect = memInfo.protection;
-                }
-            } catch (e) {
-                console.log(`[MemoryMonitor] Memory.queryProtection failed at 0x${actualAddress.toString(16)}: ${e.message}`);
-                console.log(`[MemoryMonitor] Stack: ${e.stack}`);
-                throw e;
-            }
 
             // 检查是否为可执行内存
             if (isExecutableProtection(actualProtect)) {
@@ -415,11 +415,7 @@ function createMemoryAllocOnLeave(apiName) {
                 if (existingRegion) {
                     // 检查是否为权限转换场景
                     if (isProtectionTransition(existingRegion.originalProtect, actualProtect)) {
-                        // RW->RX 或 RWX->RX 转换
-                        // 如果在 onEnter 时已经进行过 pre-transition dump，这里不再重复 dump
-                        if (!data.preTransitionDumped) {
-                            dumpImmediately = true;
-                        }
+                        // RW->RX / RWX->RX / RW->RWX 转换
                         reason = `Protection transition: ${parseMemoryProtection(existingRegion.originalProtect)} -> ${parseMemoryProtection(actualProtect)}`;
                         existingRegion.status = 'transitioned';
                         trackedMemoryRegions.set(addrStr, existingRegion);
@@ -428,47 +424,46 @@ function createMemoryAllocOnLeave(apiName) {
                             previousProtect: parseMemoryProtection(existingRegion.originalProtect),
                             newProtect: parseMemoryProtection(actualProtect),
                             originalApi: existingRegion.api,
-                            preTransitionDumped: data.preTransitionDumped || false
                         };
                     } else if (existingRegion.status === 'monitored') {
                         // 已经在监控中，跳过
                         return;
                     }
                 } else {
-                    // 新分配的可执行内存
+                    // 新分配的可写内存
                     if (isWritableProtection(actualProtect)) {
                         // RWX - 设置Interceptor等待首次执行
                         shouldMonitor = true;
                         reason = "RWX memory allocated, monitoring first execution";
                     } else {
                         // RX - 可能是已经准备好的代码，立即dump
-                        // 如果在 onEnter 时已经进行过 pre-transition dump，这里不再重复 dump
-                        if (!data.preTransitionDumped) {
-                            dumpImmediately = true;
-                        }
                         reason = "RX memory allocated";
                     }
                 }
 
+                if (data.size === 8 && shouldMonitor){
+                    return;
+                }
+
                 // 发送告警（包含完整信息）
                 sendExecutableAlert(actualAddress, data.size, actualProtect, apiName,
-                    shouldMonitor ? "monitor_first_execute" : (dumpImmediately ? "immediate_dump" : "transition"),
+                    shouldMonitor ? "monitor_first_execute" : "transition",
                     extraInfo
                 );
 
                 // 执行dump或设置监控
-                if (dumpImmediately) {
-                    requestMemoryDump(actualAddress, data.size, apiName, reason);
-                } else if (shouldMonitor) {
+                if (shouldMonitor) {
                     monitorFirstExecution(actualAddress, data.size, apiName, {
                         protect: actualProtect,
                         api: apiName
                     });
+                } else {
+                    requestMemoryDump(actualAddress, data.size, apiName, reason);
                 }
             }
 
         } catch (e) {
-            console.log(`[MemoryMonitor] onLeave error: ${e.message}`);
+            console.log(`[Memory] onLeave error: ${e.message}`);
             throw e;
         }
     };
