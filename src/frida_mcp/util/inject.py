@@ -177,21 +177,20 @@ class BaseInjector(ABC):
             filename = payload.get('filename', f"dump_{datetime.now().timestamp()}.bin")
             pid = payload.get('pid', self.current_pid or 'unknown')
 
-            # 创建dump目录
-            dump_dir = Path("memory_dumps")
+            dump_dir = Path("dumps")
             dump_dir.mkdir(exist_ok=True)
 
-            # 添加PID子目录
             pid_dir = dump_dir / str(pid)
             pid_dir.mkdir(exist_ok=True)
 
-            filepath = pid_dir / filename
-            print(f"Now in _handle_memory_dump {filename}\n size: f{len(data)}")
-            print(f"path: {filepath}")
+            memory_dir = pid_dir / "memory"
+            memory_dir.mkdir(exist_ok=True)
+
+            filepath = memory_dir / filename
             if data:
                 with open(filepath, 'wb') as f:
                     f.write(data)
-                # 发送成功确认消息（仅包含文件路径，避免重复信息）
+
                 self._log(f"[DUMP SAVED] {filepath}")
             else:
                 self._log(f"[DUMP ERROR] No data received for {filename}")
@@ -225,12 +224,16 @@ class BaseInjector(ABC):
                 if not filename.lower().endswith('.txt'):
                     filename = f"{filename}.txt"
 
-            dump_dir = Path("headers_dumps")
+            dump_dir = Path("dumps")
             dump_dir.mkdir(exist_ok=True)
+
             pid_dir = dump_dir / str(pid)
             pid_dir.mkdir(exist_ok=True)
-            filepath = pid_dir / filename
 
+            network_dir = pid_dir / "network"
+            network_dir.mkdir(exist_ok=True)
+
+            filepath = network_dir / filename
             if data:
                 content = data
             else:
