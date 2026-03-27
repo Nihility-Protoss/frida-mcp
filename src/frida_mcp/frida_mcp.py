@@ -1841,6 +1841,124 @@ def windows_fast_load_monitor_network_send(
     )
 
 
+@mcp.tool()
+def dump_user_js_file(
+        filename: Annotated[str, "Target filename to save (without path, saved to user-js directory)"],
+        content: Annotated[str, "JavaScript file content"],
+) -> Dict[str, Any]:
+    """
+    Write a JavaScript file to the user-js folder.
+    
+    If a file with the same name already exists in any scripts directory,
+    the operation will be rejected to prevent overwriting.
+
+    Args:
+        filename: Target filename to save (without path, auto-saved to src/frida_mcp/scripts/user-js directory)
+        content: JavaScript file content. Template replacement parameters use {{template_val}} format
+
+    Returns:
+        Dict with status, message, and file path
+
+    Note:
+        This does not require an active session, but filename must be unique
+    """
+    try:
+        script_manager = ScriptManager()
+        result = script_manager.dump_user_js_file(filename, content)
+
+        if result['error']:
+            return {
+                "status": "error",
+                "message": result['error']
+            }
+
+        return {
+            "status": "success",
+            "message": result['data'],
+            "filename": filename
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to write JS file: {str(e)}"
+        }
+
+
+@mcp.tool()
+def load_script_from_file(
+        filename: Annotated[str, "JavaScript filename to load"],
+        replacements: Annotated[Optional[Dict[str, str]], "Template replacement parameters as a dictionary"] = None,
+        run_script_bool: Annotated[bool, "If True, immediately inject and execute the script"] = False,
+) -> Dict[str, Any]:
+    """
+    Load and build a script from a file.
+    
+    Loads the specified JavaScript file and applies optional template replacements.
+    The loaded script is added to the current ScriptManager instance.
+
+    Args:
+        filename: JavaScript filename to load
+        replacements: Template replacement parameters as a dictionary (e.g., {"module_name": "libssl.so"})
+        run_script_bool: If True, immediately inject and execute the script after loading
+
+    Returns:
+        Dict with status and message
+
+    Prerequisites:
+        - Must have an active session via attach() or spawn()
+
+    Example:
+        load_script_from_file("module_enumerateExports.js", {"module_name": "libssl.so"})
+    """
+    if not injector:
+        return {
+            "status": "error",
+            "message": "Injector not initialized. Please call attach/spawn first."
+        }
+
+    if not injector.is_connected():
+        return {
+            "status": "error",
+            "message": "No active session. Please call attach or spawn."
+        }
+
+    try:
+        # Call ScriptManager method with replacements dictionary
+        if replacements:
+            result = injector.script_manager.load_script_from_file(filename, **replacements)
+        else:
+            result = injector.script_manager.load_script_from_file(filename)
+
+        if result['error']:
+            return {
+                "status": "error",
+                "message": result['error']
+            }
+
+        if run_script_bool:
+            inject_result = injector.inject_script()
+            if inject_result['error']:
+                return {
+                    "status": "error",
+                    "message": f"Failed to inject script: {inject_result['error']}"
+                }
+            return {
+                "status": "success",
+                "message": f"load_script_from_file and inject_script success",
+            }
+        else:
+            return {
+                "status": "success",
+                "message": f"load_script_from_file success",
+            }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error loading script: {str(e)}"
+        }
+
+
 if __name__ == "__main__":
     # Ensure the server doesn't shut down immediately. 
     # For transport="streamable-http", FastMCP should use the host/port from constructor.

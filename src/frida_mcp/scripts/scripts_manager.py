@@ -52,7 +52,10 @@ class JSFileLoader:
         Args:
             scripts_dir: JS文件目录路径，如果为None则使用默认路径
         """
-        self.scripts_dir = [Path(__file__).parent / "util-js"]
+        self.scripts_dir = [
+            Path(__file__).parent / "util-js",
+            Path(__file__).parent / "user-js"
+        ]
         if scripts_dir:
             self.scripts_dir.append(Path(scripts_dir))
 
@@ -109,6 +112,29 @@ class JSFileLoader:
             return {'error': None, 'data': files_content}
         except Exception as e:
             return {'error': str(e), 'data': {}}
+
+    def dump_user_js_file(self, filename: str, content: str) -> Dict[str, Any]:
+        """写入 JS 文件到 user-js 文件夹
+        
+        如果文件名已存在于任何脚本目录中，将拒绝写入以避免覆盖。
+        
+        Args:
+            filename: 目标保存的文件名（不需要路径，自动保存到 user-js 目录）
+            content: JS 文件内容
+            
+        Returns:
+            dict: {'error': str, 'data': str}
+                error: 错误信息，成功时为 None
+                data: 保存成功的文件路径信息
+        """
+        file_path = Path(__file__).parent / "user-js" / filename
+        for scripts_dir in self.scripts_dir:
+            f_path = scripts_dir / filename
+            if f_path.exists():
+                return {"error": f"JS file exists: {f_path}", "data": None}
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return {"error": None, "data": f"Write JS file in {file_path}"}
 
     def get_available_files(self, pattern: str = "*.js") -> Dict[str, Any]:
         """获取可用的JS文件列表
@@ -341,6 +367,20 @@ class ScriptManager:
             return {'error': None, 'data': files.get("data")}
         except Exception as e:
             return {'error': str(e), 'data': []}
+
+    def dump_user_js_file(self, filename: str, content: str) -> Dict[str, Any]:
+        """写入 js 文件到 user-js 文件夹
+
+        Args:
+            filename: 目标保存 js 的文件名（不需要任何路径）
+            content: js 文件内容
+
+        Returns:
+            dict: {'error': str, 'data': List[str]}
+                error: 错误信息，成功时为None
+                data: 保存到的文件路径信息
+        """
+        return self.file_loader.dump_user_js_file(filename, content)
 
     def init_script(self) -> Dict[str, Any]:
         """初始化脚本（保持向后兼容）"""
