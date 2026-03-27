@@ -7,6 +7,31 @@
 
 This is a Frida dynamic analysis/debugging server based on the Model Context Protocol (MCP), enabling AI models (such as Claude, Gemini, etc.) to perform dynamic analysis on mobile and desktop targets through a standardized interface.
 
+## Quick Start
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Start Command
+
+Windows:
+
+```bat
+python src/frida_mcp/frida_mcp.py
+```
+
+Linux/macOS:
+
+```bash
+python3 src/frida_mcp/frida_mcp.py
+```
+
+By default, the server starts at `127.0.0.1:8032`.
+
+
 ## Remote Connection and HTTP Protocol
 
 When `MCP_HOST` is set to `0.0.0.0`, the server listens on all network interfaces.
@@ -53,22 +78,6 @@ Simplifies Frida runtime deployment and management:
 
 - **Configuration System**: Supports layered management of global and project-specific configuration, with runtime updates and optional persistence to a selected scope.
 - **Remote Access**: When MCP is bound to `0.0.0.0`, remote HTTP access is supported, and configuration file storage behavior is optimized for multi-device consistency.
-
-## Quick Start
-
-### Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Start Server
-
-```bash
-python src/frida_mcp/frida_mcp.py
-```
-
-By default, the server starts at `127.0.0.1:8032`.
 
 ## Available Tools (MCP Tools)
 

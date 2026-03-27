@@ -37,7 +37,26 @@ For every new Frida project, the AI SHOULD:
 3.  After bulk updates, call `config_save` to persist configuration to
     disk.
 
-### 2.2 Configuration Rules
+### 2.2 User Confirmation for Frida Server
+
+Before starting Frida operations, the AI SHOULD confirm frida-server
+details with the user in simple terms, based on the config already read
+during initialization.
+
+Suggested confirmation flow:
+
+1.  Ask whether frida-server can already be started successfully on the
+    target device.
+2.  Read the frida-server path from the current config.
+3.  Ask the user to confirm the exact frida-server location on the
+    device where MCP is running, even if the config already contains a
+    path.
+4.  Update the config before trying to start or check frida-server.
+
+This confirmation step helps avoid startup failures caused by an
+incorrect server path.
+
+### 2.3 Configuration Rules
 
 -   All environment-dependent parameters MUST be stored in config.
 -   `config_set` modifies in-memory config only.

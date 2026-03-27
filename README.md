@@ -8,6 +8,31 @@
 这是一个基于 Model Context Protocol (MCP) 的 Frida 动态调试服务器，允许 AI 模型（如 Claude、Gemini
 等）通过标准化的接口执行移动端和桌面端的动态分析。
 
+## 快速开始
+
+### 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 启动命令
+
+Windows:
+
+```bat
+python src/frida_mcp/frida_mcp.py
+```
+
+Linux/macOS:
+
+```bash
+python3 src/frida_mcp/frida_mcp.py
+```
+
+默认情况下，服务器将在 `127.0.0.1:8032` 启动。
+
+
 ## 远程连接与 HTTP 协议
 
 当 `MCP_HOST` 设置为 `0.0.0.0` 时，服务器将监听所有网络接口。
@@ -56,22 +81,6 @@
 
 - **配置体系**: 支持全局配置和项目特定配置的分层管理，可在运行时动态修改配置并选择性地持久化到指定层级。
 - **远程访问**: 当 MCP 服务绑定到 `0.0.0.0` 时，支持远程 HTTP 连接，配置文件会自动优化存储逻辑以确保多设备访问一致性。
-
-## 快速开始
-
-### 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-### 启动服务器
-
-```bash
-python src/frida_mcp/frida_mcp.py
-```
-
-默认情况下，服务器将在 `127.0.0.1:8032` 启动。
 
 ## 可用工具 (MCP Tools)
 
