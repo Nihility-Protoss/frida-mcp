@@ -19,10 +19,10 @@ from util.inject_android import AndroidInjector
 from util.inject_windows import WindowsInjector
 from util.message_class import MessageLog
 
-__version__ = "0.6.0"
+__version__ = "1.0.0rc1"
 
 # Global MCP server settings
-MCP_HOST: str = "0.0.0.0"
+MCP_HOST: str = "127.0.0.1"
 MCP_PORT: int = 8032
 
 # Global state management - simplified
